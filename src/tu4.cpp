@@ -257,13 +257,43 @@ void servicesInit(XU4GameServices* gs, Options* opt) {
 
     if (!u4fsetup())
     {
-        errorFatal( "tu4 requires the PC version of Ultima IV to be present.\n"
-            "\nIt may either be a zip file or subdirectory named \"ultima4\" in the same\n"
-            "directory as the tu4 executable.\n"
-            "\nUltima IV is available for free (as legal freeware) from:\n"
+        errorFatal(
+            "tu4 requires the PC version of Ultima IV (freeware) to be present,\n"
+            "but the game data was not found.\n"
+            "\n"
+            "Ultima IV is available for free (legal freeware) from:\n"
             "    https://www.gog.com/game/ultima_4\n"
-            "\nDownload it there, then unzip it into an \"ultima4\" folder next to tu4\n"
-            "(or place the ultima4.zip in that same directory).\n");
+            "\n"
+            "Put EITHER the unzipped \"ultima4\" folder, OR the ultima4.zip file\n"
+            "(the zip need NOT be unpacked), in one of these locations:\n"
+#ifdef _WIN32
+            "    - the folder you run tu4 from\n"
+            "    - C:\\ , C:\\DOS , or C:\\GAMES\n"
+            "\n"
+            "Example: create C:\\GAMES\\ultima4\\ and copy the data files there,\n"
+            "or drop ultima4.zip into the folder next to tu4.exe.\n"
+#elif defined(__linux__)
+            "    - the current directory you run tu4 from\n"
+            "    - %s/.local/share/tu4/\n"
+            "    - /usr/share/tu4/  or  /usr/local/share/tu4/\n"
+            "\n"
+            "Example (recommended for an installed package):\n"
+            "    mkdir -p ~/.local/share/tu4\n"
+            "    cp ultima4.zip ~/.local/share/tu4/\n"
+            "  (or unzip it there as ~/.local/share/tu4/ultima4/)\n"
+#else
+            "    - the current directory you run tu4 from\n"
+            "    - /usr/share/tu4/  or  /usr/local/share/tu4/\n"
+            "\n"
+            "Example: unzip it as /usr/local/share/tu4/ultima4/, or place\n"
+            "ultima4.zip in the folder you run tu4 from.\n"
+#endif
+            "\n"
+            "The optional u4upgrad.zip may be placed alongside it.\n"
+#ifdef __linux__
+            , getenv("HOME") ? getenv("HOME") : "$HOME"
+#endif
+            );
     }
 
     /* Setup the message bus early to make it available to other services. */
