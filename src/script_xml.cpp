@@ -27,7 +27,7 @@
 #include "weapon.h"
 #include "xml.h"
 #include "u4.h"
-#include "xu4.h"
+#include "tu4.h"
 
 using namespace std;
 
@@ -35,7 +35,7 @@ using namespace std;
 /**
  * Converts an integer value to a string
  */
-static string xu4_to_string(int val) {
+static string tu4_to_string(int val) {
     char buffer[16];
     sprintf(buffer, "%d", val);
     return buffer;
@@ -52,21 +52,21 @@ static string translateContext(vector<string>& parts) {
 static string translateMember(const PartyMember* pm, std::vector<string>& parts) {
     if (parts.size() == 1) {
         if (parts[0] == "hp")
-            return xu4_to_string(pm->getHp());
+            return tu4_to_string(pm->getHp());
         else if (parts[0] == "max_hp")
-            return xu4_to_string(pm->getMaxHp());
+            return tu4_to_string(pm->getMaxHp());
         else if (parts[0] == "mp")
-            return xu4_to_string(pm->getMp());
+            return tu4_to_string(pm->getMp());
         else if (parts[0] == "max_mp")
-            return xu4_to_string(pm->getMaxMp());
+            return tu4_to_string(pm->getMaxMp());
         else if (parts[0] == "str")
-            return xu4_to_string(pm->getStr());
+            return tu4_to_string(pm->getStr());
         else if (parts[0] == "dex")
-            return xu4_to_string(pm->getDex());
+            return tu4_to_string(pm->getDex());
         else if (parts[0] == "int")
-            return xu4_to_string(pm->getInt());
+            return tu4_to_string(pm->getInt());
         else if (parts[0] == "exp")
-            return xu4_to_string(pm->getExp());
+            return tu4_to_string(pm->getExp());
         else if (parts[0] == "name")
             return pm->getName();
         else if (parts[0] == "weapon")
@@ -81,7 +81,7 @@ static string translateMember(const PartyMember* pm, std::vector<string>& parts)
         else if (parts[0] == "class")
             return getClassName(pm->getClass());
         else if (parts[0] == "level")
-            return xu4_to_string(pm->getRealLevel());
+            return tu4_to_string(pm->getRealLevel());
     }
     else if (parts.size() == 2) {
         if (parts[0] == "needs") {
@@ -119,27 +119,27 @@ static string translateParty(vector<string>& parts) {
                 return "balloon";
         }
         else if (parts[0] == "gold")
-            return xu4_to_string(c->saveGame->gold);
+            return tu4_to_string(c->saveGame->gold);
         else if (parts[0] == "food")
-            return xu4_to_string(c->saveGame->food);
+            return tu4_to_string(c->saveGame->food);
         else if (parts[0] == "members")
-            return xu4_to_string(c->party->size());
+            return tu4_to_string(c->party->size());
         else if (parts[0] == "keys")
-            return xu4_to_string(c->saveGame->keys);
+            return tu4_to_string(c->saveGame->keys);
         else if (parts[0] == "torches")
-            return xu4_to_string(c->saveGame->torches);
+            return tu4_to_string(c->saveGame->torches);
         else if (parts[0] == "gems")
-            return xu4_to_string(c->saveGame->gems);
+            return tu4_to_string(c->saveGame->gems);
         else if (parts[0] == "sextants")
-            return xu4_to_string(c->saveGame->sextants);
+            return tu4_to_string(c->saveGame->sextants);
         else if (parts[0] == "food")
-            return xu4_to_string((c->saveGame->food / 100));
+            return tu4_to_string((c->saveGame->food / 100));
         else if (parts[0] == "gold")
-            return xu4_to_string(c->saveGame->gold);
+            return tu4_to_string(c->saveGame->gold);
         else if (parts[0] == "party_members")
-            return xu4_to_string(c->saveGame->members);
+            return tu4_to_string(c->saveGame->members);
         else if (parts[0] == "moves")
-            return xu4_to_string(c->saveGame->moves);
+            return tu4_to_string(c->saveGame->moves);
     }
     else if (parts.size() >= 2) {
         if (parts[0].find_first_of("member") == 0) {
@@ -161,14 +161,14 @@ static string translateParty(vector<string>& parts) {
         }
         else if (parts.size() == 2) {
             if (parts[0] == "weapon") {
-                int type = xu4.config->weaponType(parts[1].c_str());
+                int type = tu4.config->weaponType(parts[1].c_str());
                 if (type >= 0)
-                    return xu4_to_string(c->saveGame->weapons[type]);
+                    return tu4_to_string(c->saveGame->weapons[type]);
             }
             else if (parts[0] == "armor") {
-                int type = xu4.config->armorType(parts[1].c_str());
+                int type = tu4.config->armorType(parts[1].c_str());
                 if (type >= 0)
-                    return xu4_to_string(c->saveGame->armor[type]);
+                    return tu4_to_string(c->saveGame->armor[type]);
             }
         }
     }
@@ -188,7 +188,7 @@ Script::Variable::Variable(const string &v) : set(true) {
 
 Script::Variable::Variable(const int &v) : set(true) {
     i_val = v;
-    s_val = xu4_to_string(v);
+    s_val = tu4_to_string(v);
 }
 
 int&    Script::Variable::getInt()      { return i_val; }
@@ -647,7 +647,7 @@ void Script::translate(string *text) {
         }
         // Get the current iterator for our loop
         else if (item == "iterator")
-            prop = xu4_to_string(this->iterator);
+            prop = tu4_to_string(this->iterator);
         else if ((pos = item.find("show_inventory:")) < item.length()) {
             pos = item.find(":");
             string itemScript = item.substr(pos+1);
@@ -764,7 +764,7 @@ void Script::translate(string *text) {
                     if (content.empty())
                         errorWarning("Error: empty math() function");
 
-                    prop = xu4_to_string(mathValue(content));
+                    prop = tu4_to_string(mathValue(content));
                 }
 
                 /**
@@ -796,7 +796,7 @@ void Script::translate(string *text) {
 
                 /* generate a random number */
                 else if (funcName == "random")
-                    prop = xu4_to_string(xu4_random((int)strtol(content.c_str(), NULL, 10)));
+                    prop = tu4_to_string(tu4_random((int)strtol(content.c_str(), NULL, 10)));
 
                 /* replaced with "true" if content is empty, or "false" if not */
                 else if (funcName == "isempty") {
@@ -1083,7 +1083,7 @@ Script::ReturnCode Script::forLoop(xmlNodePtr script, xmlNodePtr current) {
  */
 Script::ReturnCode Script::random(xmlNodePtr script, xmlNodePtr current) {
     int perc = getPropAsInt(current, "chance");
-    int num = xu4_random(100);
+    int num = tu4_random(100);
     Script::ReturnCode retval = RET_OK;
 
     if (num < perc)
@@ -1544,7 +1544,7 @@ void Script::mathParseChildren(xmlNodePtr math, string *result) {
             string children_results;
 
             mathParseChildren(current, &children_results);
-            *result = xu4_to_string(mathValue(children_results));
+            *result = tu4_to_string(mathValue(children_results));
         }
     }
 }
@@ -1785,10 +1785,10 @@ void Script::talkToVendor(const char* locale, const string& goods) {
 
             case INPUT_PLAYER: {
                 ReadPlayerController getPlayerCtrl;
-                xu4.eventHandler->pushController(&getPlayerCtrl);
+                tu4.eventHandler->pushController(&getPlayerCtrl);
                 int player = getPlayerCtrl.waitFor();
                 if (player != -1) {
-                    string player_str = xu4_to_string(player+1);
+                    string player_str = tu4_to_string(player+1);
                     setVar(getInputName(), player_str);
                 }
                 else unsetVar(getInputName());

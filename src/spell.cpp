@@ -14,7 +14,7 @@
 #include "settings.h"
 #include "tileset.h"
 #include "utils.h"
-#include "xu4.h"
+#include "tu4.h"
 
 SpellEffectCallback spellEffectCallback = NULL;
 
@@ -301,7 +301,7 @@ bool spellCast(unsigned int spell, int character, int param, SpellCastError *err
         /* recalculate spell speed - based on 5/sec */
         float MP_OF_LARGEST_SPELL = 45;
         int spellMp = spells[spell].mp;
-        time = int(10000.0 / xu4.settings->spellEffectSpeed  *  spellMp / MP_OF_LARGEST_SPELL);
+        time = int(10000.0 / tu4.settings->spellEffectSpeed  *  spellMp / MP_OF_LARGEST_SPELL);
         soundPlay(SOUND_PREMAGIC_MANA_JUMBLE, false, time);
         EventHandler::wait_msecs(time);
 
@@ -317,7 +317,7 @@ bool spellCast(unsigned int spell, int character, int param, SpellCastError *err
 }
 
 CombatController *spellCombatController() {
-    return dynamic_cast<CombatController *>(xu4.eventHandler->getController());
+    return dynamic_cast<CombatController *>(tu4.eventHandler->getController());
 }
 
 /**
@@ -330,7 +330,7 @@ void spellMagicAttack(Symbol tilename, Direction dir, int minDamage, int maxDama
     MapTile tile = c->location->map->tileset->getByName(tilename)->getId();
 
     int attackDamage = ((minDamage >= 0) && (minDamage < maxDamage)) ?
-        xu4_random((maxDamage + 1) - minDamage) + minDamage :
+        tu4_random((maxDamage + 1) - minDamage) + minDamage :
         maxDamage;
 
     vector<Coords> path = gameGetDirectionalActionPath(MASK_DIR(dir), MASK_DIR_ALL, (*party)[controller->getFocus()]->coords,
@@ -406,7 +406,7 @@ static int spellBlink(int dir) {
 
     /* see if we move another 16 spaces over */
     diff = 0x10 - distance;
-    if ((diff > 0) && (xu4_random(diff * diff) > distance))
+    if ((diff > 0) && (tu4_random(diff * diff) > distance))
         distance += 0x10;
 
     /* test our distance, and see if it works */
@@ -551,7 +551,7 @@ static int spellGate(int phase) {
 
     GameController::flashTile(c->location->coords, Tile::sym.moongate, 2);
 
-    moongate = xu4.config->moongateCoords(phase);
+    moongate = tu4.config->moongateCoords(phase);
     if (moongate)
         c->location->coords = *moongate;
 
@@ -629,7 +629,7 @@ static int spellSleep(int unused) {
         const Coords& coords = m->coords;
         GameController::flashTile(coords, Tile::sym.wisp, 1);
         if ((m->getResists() != EFFECT_SLEEP) &&
-            xu4_random(0xFF) >= m->getHp())
+            tu4_random(0xFF) >= m->getHp())
         {
             soundPlay(SOUND_POISON_EFFECT);
             m->putToSleep();
@@ -662,13 +662,13 @@ static int spellTremor(int unused) {
         }
         else {
             /* Deal maximum damage to creature */
-            if (xu4_random(2) == 0) {
+            if (tu4_random(2) == 0) {
                 soundPlay(SOUND_NPC_STRUCK);
                 GameController::flashTile(coords, Tile::sym.hitFlash, 3);
                 ct->getCurrentPlayer()->dealDamage(map, m, 0xFF);
             }
             /* Deal enough damage to creature to make it flee */
-            else if (xu4_random(2) == 0) {
+            else if (tu4_random(2) == 0) {
                 soundPlay(SOUND_NPC_STRUCK);
                 GameController::flashTile(coords, Tile::sym.hitFlash, 2);
                 if (m->getHp() > 23)
@@ -691,7 +691,7 @@ static int spellUndead(int unused) {
 
     for (i = creatures.begin(); i != creatures.end(); i++) {
         Creature *m = *i;
-        if (m && m->isUndead() && xu4_random(2) == 0)
+        if (m && m->isUndead() && tu4_random(2) == 0)
             m->setHp(23);
     }
 
@@ -711,7 +711,7 @@ static int spellWinds(int fromdir) {
 static int spellXit(int unused) {
     if (!c->location->map->isWorldMap()) {
         screenMessage("Leaving...\n");
-        xu4.game->exitToParentMap();
+        tu4.game->exitToParentMap();
         musicPlayLocale();
         return 1;
     }
@@ -728,7 +728,7 @@ static int spellYup(int unused) {
     /* staying in the dungeon */
     else if (coords.z > 0) {
         for (int i = 0; i < 0x20; i++) {
-            coords = Coords(xu4_random(8), xu4_random(8), c->location->coords.z - 1);
+            coords = Coords(tu4_random(8), tu4_random(8), c->location->coords.z - 1);
             if (dungeon->validTeleportLocation(coords)) {
                 c->location->coords = coords;
                 return 1;
@@ -737,7 +737,7 @@ static int spellYup(int unused) {
     /* exiting the dungeon */
     } else {
         screenMessage("Leaving...\n");
-        xu4.game->exitToParentMap();
+        tu4.game->exitToParentMap();
         musicPlayLocale();
         return 1;
     }
@@ -758,7 +758,7 @@ static int spellZdown(int unused) {
         return 0;
     else {
         for (int i = 0; i < 0x20; i++) {
-            coords = Coords(xu4_random(8), xu4_random(8), c->location->coords.z + 1);
+            coords = Coords(tu4_random(8), tu4_random(8), c->location->coords.z + 1);
             if (dungeon->validTeleportLocation(coords)) {
                 c->location->coords = coords;
                 return 1;

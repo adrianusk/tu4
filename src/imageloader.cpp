@@ -11,7 +11,7 @@
 #include "imageloader.h"
 #include "imagemgr.h"
 #include "screen.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #define ASP_HEADER_SIZE  7
 /* ASP_SCREEN_SIZE (full-screen char+attr payload byte size) comes from screen.h. */

@@ -9,7 +9,7 @@
 #include "map.h"
 #include "screen.h"
 #include "tileset.h"
-#include "xu4.h"
+#include "tu4.h"
 
 extern bool isPartyMember(const Object*);
 
@@ -27,8 +27,8 @@ Object::Object(Type type) :
 
 Object::~Object() {
     // Must check if exiting game as the eventHandler may already be deleted.
-    if (animId != ANIM_UNUSED && xu4.stage != StageExitGame)
-        anim_setState(&xu4.eventHandler->flourishAnim, animId, ANIM_FREE);
+    if (animId != ANIM_UNUSED && tu4.stage != StageExitGame)
+        anim_setState(&tu4.eventHandler->flourishAnim, animId, ANIM_FREE);
 }
 
 bool Object::setDirection(Direction d) {
@@ -72,8 +72,8 @@ void Object::removeFromMaps() {
 void Object::animateMovement()
 {
     //TODO abstract movement - also make screen.h and game.h not required
-    screenTileUpdate(&xu4.game->mapArea, prevCoords);
-    if (screenTileUpdate(&xu4.game->mapArea, coords))
+    screenTileUpdate(&tu4.game->mapArea, prevCoords);
+    if (screenTileUpdate(&tu4.game->mapArea, coords))
         screenWait(1);
 }
 
@@ -83,5 +83,5 @@ void Object::animateMovement()
 void Object::animControl(int animState)
 {
     if (animId != ANIM_UNUSED)
-        anim_setState(&xu4.eventHandler->flourishAnim, animId, animState);
+        anim_setState(&tu4.eventHandler->flourishAnim, animId, animState);
 }

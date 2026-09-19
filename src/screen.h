@@ -127,11 +127,7 @@ void screenDelete(void);
 void screenReInit(void);
 void screenSwapBuffers();
 void screenWait(int numberOfAnimationFrames);
-#ifdef USE_GL
-void screenUploadToGPU();
-#else
 #define screenUploadToGPU()
-#endif
 
 void screenIconify(void);
 
@@ -157,10 +153,6 @@ void screenShowCharMasked(int chr, int x, int y, unsigned char mask);
 void screenTextAt(int x, int y, const char *fmt, ...) PRINTF_LIKE(3, 4);
 void screenTextColor(int color);
 bool screenTileUpdate(TileView *view, const Coords &coords);
-#ifdef GPU_RENDER
-void screenDisableMap();
-void screenUpdateMap(TileView* view, const Map* map, const Coords& center);
-#endif
 void screenUpdate(TileView *view, bool showmap, bool blackout);
 void screenUpdateCursor(void);
 void screenUpdateMoons(void);

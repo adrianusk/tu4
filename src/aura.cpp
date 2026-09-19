@@ -3,7 +3,7 @@
  */
 
 #include "aura.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #define NOTIFY  gs_emitMessage(SENDER_AURA, this)
 

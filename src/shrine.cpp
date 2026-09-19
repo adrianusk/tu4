@@ -14,7 +14,7 @@
 #include "settings.h"
 #include "tileset.h"
 #include "u4.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #ifdef IOS
 #include "ios_helpers.h"
@@ -24,7 +24,7 @@
  * Returns true if the player can use the portal to the shrine
  */
 bool shrineCanEnter(const Portal *p) {
-    Shrine *shrine = dynamic_cast<Shrine*>(xu4.config->map(p->destid));
+    Shrine *shrine = dynamic_cast<Shrine*>(tu4.config->map(p->destid));
     if (!c->party->canEnterShrine(shrine->virtue)) {
         screenMessage("Thou dost not bear the rune of entry!  A strange force keeps you out!\n");
         return 0;
@@ -40,7 +40,7 @@ const char* Shrine::getName() const {
 }
 
 const char* Shrine::mantraStr() const {
-    return xu4.config->symbolName(mantra);
+    return tu4.config->symbolName(mantra);
 }
 
 /**
@@ -63,8 +63,8 @@ void Shrine::enter() {
 #ifdef IOS
     U4IOS::IOSHideGameControllerHelper hideControllsHelper;
 #endif
-    if (xu4.settings->enhancements &&
-        xu4.settings->enhancementsOptions.u5shrines)
+    if (tu4.settings->enhancements &&
+        tu4.settings->enhancementsOptions.u5shrines)
         enhancedSequence();
     else
         screenMessage("You enter the ancient shrine and sit before the altar...");
@@ -126,7 +126,7 @@ void Shrine::enhancedSequence() {
     gameUpdateScreen();
     EventHandler::wait_msecs(1000);
 
-    const Creature* beggar = xu4.config->creature(BEGGAR_ID);
+    const Creature* beggar = tu4.config->creature(BEGGAR_ID);
     Object *obj = addCreature(beggar, Coords(5, 10, c->location->coords.z));
 
     // Change graphic to the Avatar (which has no animation).
@@ -153,7 +153,7 @@ void Shrine::enhancedSequence() {
 
 void Shrine::meditationCycle() {
     /* Calculate the millisecond interval for meditation */
-    int interval = (xu4.settings->shrineTime * 1000) / MEDITATION_MANTRAS_PER_CYCLE;
+    int interval = (tu4.settings->shrineTime * 1000) / MEDITATION_MANTRAS_PER_CYCLE;
     if (interval < 50)
         interval = 50;
 
@@ -236,7 +236,7 @@ void Shrine::showVision(bool elevated) {
 }
 
 void Shrine::eject() {
-    xu4.game->exitToParentMap();
+    tu4.game->exitToParentMap();
     musicPlayLocale();
     c->location->turnCompleter->finishTurn();
 }

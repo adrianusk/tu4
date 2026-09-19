@@ -32,7 +32,7 @@
 #include "tileview.h"
 #include "textview.h"
 #include "u4.h"
-#include "xu4.h"
+#include "tu4.h"
 
 using namespace std;
 
@@ -116,8 +116,8 @@ void screenInit() {
     memset(textBuffer, 0, sizeof(textBuffer));
 
     /* Allocate Screen struct for map rendering data */
-    if (!xu4.screen)
-        xu4.screen = new Screen();
+    if (!tu4.screen)
+        tu4.screen = new Screen();
 
     /* Initialize screen state */
     scrState.tileanims = NULL;
@@ -126,27 +126,27 @@ void screenInit() {
     scrState.formatIsABGR = false;
 
     /* Create the image manager */
-    if (!xu4.imageMgr)
-        xu4.imageMgr = new ImageMgr();
+    if (!tu4.imageMgr)
+        tu4.imageMgr = new ImageMgr();
 
     /* Initialize the system display (SDL window) */
     /* Logical pixel size = character grid * 8px glyph cell (see backend). */
     int dim[4] = {0, 0, SCREEN_COLS * 8, SCREEN_ROWS * 8};
-    screenInit_sys(xu4.settings, dim, 0);
+    screenInit_sys(tu4.settings, dim, 0);
 
     /* Load tile animations if available */
-    scrState.tileanims = xu4.config->newTileAnims(xu4.settings->textStyle.c_str());
+    scrState.tileanims = tu4.config->newTileAnims(tu4.settings->textStyle.c_str());
 
     /* Load tile images (resolves animation rules for each tile) */
     Tileset::loadImages();
 
     /* Set up gem layout names */
     uint32_t layoutCount;
-    const Layout* layouts = xu4.config->layouts(&layoutCount);
+    const Layout* layouts = tu4.config->layouts(&layoutCount);
     gemLayoutNames.clear();
     for (uint32_t i = 0; i < layoutCount; i++) {
         if (layouts[i].type == LAYOUT_GEM) {
-            gemLayoutNames.push_back(xu4.config->symbolName(layouts[i].name));
+            gemLayoutNames.push_back(tu4.config->symbolName(layouts[i].name));
         }
     }
 
@@ -176,7 +176,7 @@ void screenReInit() {
        reloaded for the newly selected theme. The DungeonView caches raw
        pointers into the scheme's images/ASP data (dungObj0/npc1/obj1Data +
        graphic[].info/.sub); those images are freed just below by
-       'delete xu4.imageMgr'. Inspect whether such state is loaded (a
+       'delete tu4.imageMgr'. Inspect whether such state is loaded (a
        DungeonView exists => a dungeon game is in progress), destroy it here,
        and RECREATE it after the image manager is rebuilt so it re-caches
        against the new scheme.
@@ -185,27 +185,27 @@ void screenReInit() {
        "Journey Onward" does NOT go through setMap()/screenMakeDungeonView()
        -- the location is unchanged -- so a NULL dungeonView would leave the
        3D view undrawn (black screen). */
-    bool hadDungeonView = (xu4.screen && xu4.screen->dungeonView);
-    if (xu4.screen) {
-        delete xu4.screen->dungeonView;
-        xu4.screen->dungeonView = NULL;
+    bool hadDungeonView = (tu4.screen && tu4.screen->dungeonView);
+    if (tu4.screen) {
+        delete tu4.screen->dungeonView;
+        tu4.screen->dungeonView = NULL;
     }
 
     delete scrState.tileanims;
     scrState.tileanims = NULL;
 
-    delete xu4.imageMgr;            // frees every cached ImageSet/ImageInfo->image
-    xu4.imageMgr = NULL;
+    delete tu4.imageMgr;            // frees every cached ImageSet/ImageInfo->image
+    tu4.imageMgr = NULL;
 
     /* --- Resize the display for any scale/fullscreen change --- */
     /* Logical pixel size = character grid * 8px glyph cell (see backend). */
     int dim[4] = {0, 0, SCREEN_COLS * 8, SCREEN_ROWS * 8};
-    screenInit_sys(xu4.settings, dim, 1);
+    screenInit_sys(tu4.settings, dim, 1);
 
     /* --- Rebuild graphics data (mirrors xu4 screenInit_data) --- */
-    xu4.imageMgr = new ImageMgr();  // ctor re-points baseSet to current textStyle
+    tu4.imageMgr = new ImageMgr();  // ctor re-points baseSet to current textStyle
 
-    scrState.tileanims = xu4.config->newTileAnims(xu4.settings->textStyle.c_str());
+    scrState.tileanims = tu4.config->newTileAnims(tu4.settings->textStyle.c_str());
 
     Tileset::loadImages();          // reload tile Image* copies from new scheme
 
@@ -247,7 +247,7 @@ void screenShowChar(int chr, int x, int y) {
     uint8_t attr = (uint8_t)textColor;
 
     if (ch < 32) {
-        ImageInfo* charsetInfo = xu4.imageMgr->get(BKGD_CHARSET);
+        ImageInfo* charsetInfo = tu4.imageMgr->get(BKGD_CHARSET);
         if (charsetInfo && charsetInfo->image && charsetInfo->image->getAspData()) {
             const uint8_t* data = charsetInfo->image->getAspData();
             int idx = ch * 2;
@@ -367,7 +367,7 @@ newline:
             uint8_t attr = (uint8_t)textColor;
 
             if (ch < 32) {
-                ImageInfo* charsetInfo = xu4.imageMgr->get(BKGD_CHARSET);
+                ImageInfo* charsetInfo = tu4.imageMgr->get(BKGD_CHARSET);
                 if (charsetInfo && charsetInfo->image && charsetInfo->image->getAspData()) {
                     const uint8_t* data = charsetInfo->image->getAspData();
                     int idx = ch * 2;
@@ -435,7 +435,7 @@ void screenEraseTextArea(int x, int y, int width, int height) {
 }
 
 void screenDrawImageInMapArea(Symbol bkgd) {
-    ImageInfo* info = xu4.imageMgr->get(bkgd);
+    ImageInfo* info = tu4.imageMgr->get(bkgd);
     if (!info || !info->image)
         return;
 
@@ -495,7 +495,7 @@ void screenGemUpdate() {
 
     /* Find the appropriate gem layout */
     uint32_t layoutCount;
-    const Layout* layouts = xu4.config->layouts(&layoutCount);
+    const Layout* layouts = tu4.config->layouts(&layoutCount);
     const Layout* gemLayout = NULL;
     const Layout* dungeonGemLayout = NULL;
 
@@ -521,7 +521,7 @@ void screenGemUpdate() {
             return;
 
         /* Get charset data for dungeon glyph rendering */
-        ImageInfo* charsetInfo = xu4.imageMgr->get(BKGD_CHARSET);
+        ImageInfo* charsetInfo = tu4.imageMgr->get(BKGD_CHARSET);
         const uint8_t* charsetData = NULL;
         if (charsetInfo && charsetInfo->image)
             charsetData = charsetInfo->image->getAspData();
@@ -655,14 +655,14 @@ void screenGemUpdate() {
             return;
 
         /* Load gem tiles data from GEM.ASP */
-        ImageInfo* gemInfo = xu4.imageMgr->get(BKGD_GEMTILES);
+        ImageInfo* gemInfo = tu4.imageMgr->get(BKGD_GEMTILES);
         const uint8_t* gemData = NULL;
         if (gemInfo && gemInfo->image)
             gemData = gemInfo->image->getAspData();
         if (!gemData)
             return;
 
-        const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+        const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
 
         for (x = 0; x < layout->viewport.width; x++) {
             for (y = 0; y < layout->viewport.height; y++) {
@@ -693,7 +693,7 @@ void screenGemUpdate() {
 
 void screenCycle() {
     scrState.currentCycle = (scrState.currentCycle + 1) % SCR_CYCLE_MAX;
-    xu4.eventHandler->advanceFlourishAnim();
+    tu4.eventHandler->advanceFlourishAnim();
 }
 
 bool screenTileUpdate(TileView *view, const Coords &coords) {
@@ -725,17 +725,17 @@ bool screenTileUpdate(TileView *view, const Coords &coords) {
 }
 
 void screenShake(int iterations) {
-    if (xu4.settings->screenShakes) {
+    if (tu4.settings->screenShakes) {
         for (int i = 0; i < iterations; i++) {
             // shift the screen down
             scrState.vertOffset = 1;
             screenSwapBuffers();
-            EventHandler::wait_msecs(xu4.settings->shakeInterval);
+            EventHandler::wait_msecs(tu4.settings->shakeInterval);
 
             // shift the screen back up
             scrState.vertOffset = 0;
             screenSwapBuffers();
-            EventHandler::wait_msecs(xu4.settings->shakeInterval);
+            EventHandler::wait_msecs(tu4.settings->shakeInterval);
         }
     }
 }
@@ -780,7 +780,7 @@ void screenUpdateMoons() {
     if ((c->location->context & CTX_NON_COMBAT) != c->location->context)
         return;
 
-    ImageInfo* info = xu4.imageMgr->get(BKGD_MOONPHASES);
+    ImageInfo* info = tu4.imageMgr->get(BKGD_MOONPHASES);
     if (!info || !info->image)
         return;
     const uint8_t* data = info->image->getAspData();
@@ -826,22 +826,22 @@ void screenUpdateWind() {
  *-----------------------------------------------------------------------*/
 
 bool screenToggle3DDungeonView() {
-    DungeonView* view = xu4.screen->dungeonView;
+    DungeonView* view = tu4.screen->dungeonView;
     if (view)
         return view->toggle3DDungeonView();
     return false;
 }
 
 void screenMakeDungeonView() {
-    if (xu4.screen->dungeonView)
+    if (tu4.screen->dungeonView)
         return;
-    xu4.screen->dungeonView = new DungeonView(BORDER_WIDTH, BORDER_HEIGHT,
+    tu4.screen->dungeonView = new DungeonView(BORDER_WIDTH, BORDER_HEIGHT,
                                               VIEWPORT_W, VIEWPORT_H);
 }
 
 void screenDetectDungeonTraps() {
-    if (xu4.screen->dungeonView)
-        xu4.screen->dungeonView->detectTraps();
+    if (tu4.screen->dungeonView)
+        tu4.screen->dungeonView->detectTraps();
 }
 
 
@@ -1021,7 +1021,7 @@ void screenUpdate(TileView *view, bool showmap, bool blackout) {
     if (!view || !c)
         return;
 
-    Screen* scr = xu4.screen;
+    Screen* scr = tu4.screen;
     if (!scr)
         return;
 
@@ -1033,8 +1033,8 @@ void screenUpdate(TileView *view, bool showmap, bool blackout) {
     }
     else if (c->location->map->flags & FIRST_PERSON) {
         /* Dungeon first-person 3D view */
-        if (xu4.screen->dungeonView)
-            xu4.screen->dungeonView->display(c, view);
+        if (tu4.screen->dungeonView)
+            tu4.screen->dungeonView->display(c, view);
     }
     else if (showmap) {
         MapTile black = c->location->map->tileset->getByName(Tile::sym.black)->getId();

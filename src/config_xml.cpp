@@ -44,7 +44,7 @@
 #include "tileset.h"
 #include "weapon.h"
 #include "u4file.h"
-#include "xu4.h"
+#include "tu4.h"
 #include "support/SymbolTable.h"
 
 #include "config_data.cpp"
@@ -743,9 +743,9 @@ static void conf_creatureLoad(ConfigXML* cfg, Creature* cr, Tileset* ts, const C
     /* get the base hp */
     cr->basehp = conf.getInt("basehp", 0);
     /* adjust basehp according to battle difficulty setting */
-    if (xu4.settings->battleDiff == BattleDiff_Hard)
+    if (tu4.settings->battleDiff == BattleDiff_Hard)
         cr->basehp *= 2;
-    else if (xu4.settings->battleDiff == BattleDiff_Expert)
+    else if (tu4.settings->battleDiff == BattleDiff_Expert)
         cr->basehp *= 4;
 
     /* get the camouflaged tile */
@@ -862,7 +862,7 @@ ConfigXML::ConfigXML() {
 
     xmlXIncludeProcess(xcd.doc);
 
-    if (xu4.settings->validateXml && xcd.doc->intSubset) {
+    if (tu4.settings->validateXml && xcd.doc->intSubset) {
         string errorMessage;
         xmlValidCtxt cvp;
 
@@ -1352,7 +1352,7 @@ Map* Config::restoreMap(uint32_t id) {
         bool ok;
 
         if (rmap->type == Map::DUNGEON) {
-            string path(xu4.settings->getUserPath() + DNGMAP_SAV);
+            string path(tu4.settings->getUserPath() + DNGMAP_SAV);
             sav = fopen(path.c_str(), "rb");
         }
         ok = loadMap(rmap, sav);
@@ -1769,15 +1769,15 @@ TileAnimSet* Config::newTileAnims(const char* name) const {
 // Items (weapons & armor)
 
 const char* Armor::getName() const {
-    return xu4.config->confString(name);
+    return tu4.config->confString(name);
 }
 
 const char* Weapon::getName() const {
-    return xu4.config->confString(name);
+    return tu4.config->confString(name);
 }
 
 const char* Weapon::getAbbrev() const {
-    return xu4.config->confString(abbr);
+    return tu4.config->confString(abbr);
 }
 
 static Armor* conf_armor(ConfigXML* cfg, int type, const ConfigElement& conf) {

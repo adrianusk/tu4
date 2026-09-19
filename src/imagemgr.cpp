@@ -12,7 +12,7 @@
 #include "imageloader.h"
 #include "imagemgr.h"
 #include "settings.h"
-#include "xu4.h"
+#include "tu4.h"
 
 extern bool verbose;
 
@@ -31,7 +31,7 @@ ImageInfo::~ImageInfo() {
 }
 
 std::string ImageInfo::getFilename() const {
-    return xu4.config->symbolName(filename);
+    return tu4.config->symbolName(filename);
 }
 
 ImageSet::~ImageSet() {
@@ -44,7 +44,7 @@ ImageMgr::ImageMgr()
     : baseSet(NULL), vgaColors(NULL), greyColors(NULL),
       visionBuf(NULL), logger(NULL), listenerId(-1), resGroup(0) {
 
-    xu4.config->internSymbols(&sym.tiles, 46,
+    tu4.config->internSymbols(&sym.tiles, 46,
         "tiles charset borders title options_top\n"
         "options_btm tree portal outside inside\n"
         "wagon gypsy abacus honcom valjus\n"
@@ -55,7 +55,7 @@ ImageMgr::ImageMgr()
         "rune4 rune5 rune6 rune7 rune8\n"
         "gemtiles moonphases moongate items blackbead whitebead");
 
-    notice(SENDER_SETTINGS, xu4.settings, this);
+    notice(SENDER_SETTINGS, tu4.settings, this);
     listenerId = gs_listen(1<<SENDER_SETTINGS, notice, this);
 }
 
@@ -78,12 +78,12 @@ ImageSet* ImageMgr::scheme(Symbol name) {
         return it->second;
 
     // Not cached yet; load it from Config by matching scheme name.
-    const char* nameStr = xu4.config->symbolName(name);
-    const char** names = xu4.config->schemeNames();
+    const char* nameStr = tu4.config->symbolName(name);
+    const char** names = tu4.config->schemeNames();
     const char** nit = names;
     while (*nit) {
         if (strcmp(nameStr, *nit) == 0) {
-            ImageSet* sp = xu4.config->newScheme(nit - names);
+            ImageSet* sp = tu4.config->newScheme(nit - names);
             if (!sp)
                 break;
             imageSets[sp->name] = sp;
@@ -259,7 +259,7 @@ void ImageMgr::notice(int sender, void* eventData, void* user) {
     Settings* settings = (Settings*)eventData;
 
     std::string setname = settings->textStyle;
-    Symbol sym = xu4.config->intern(setname.c_str());
+    Symbol sym = tu4.config->intern(setname.c_str());
     mgr->baseSet = mgr->scheme(sym);
 }
 

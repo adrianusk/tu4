@@ -5,7 +5,7 @@
 
 #include "progress_bar.h"
 #include "screen.h"
-#include "xu4.h"
+#include "tu4.h"
 
 ProgressBar::ProgressBar(int x, int y, int width, int height, int _min, int _max) :
     View(x, y, width, 1),

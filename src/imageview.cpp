@@ -8,7 +8,7 @@
 #include "imagemgr.h"
 #include "imageview.h"
 #include "screen.h"
-#include "xu4.h"
+#include "tu4.h"
 
 ImageView::ImageView(int x, int y, int width, int height)
     : View(x, y, width, height) {
@@ -51,7 +51,7 @@ void ImageView::draw(const ImageInfo* info, int sub, int ox, int oy) {
  */
 void ImageView::draw(Symbol imageName, int dx, int dy, int maxRows) {
     const SubImage* subimage;
-    ImageInfo *info = xu4.imageMgr->imageInfo(imageName, &subimage);
+    ImageInfo *info = tu4.imageMgr->imageInfo(imageName, &subimage);
     if (!info) {
         errorLoadImage(imageName);
         return;

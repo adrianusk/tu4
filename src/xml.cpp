@@ -14,7 +14,7 @@
 #include "error.h"
 #include "settings.h"
 #include "u4file.h"
-#include "xu4.h"
+#include "tu4.h"
 
 using namespace std;
 
@@ -60,7 +60,7 @@ xmlDocPtr xmlParse(const char *filename) {
     if (!doc)
         errorFatal("error parsing %s", filename);
 
-    if (xu4.settings->validateXml && doc->intSubset) {
+    if (tu4.settings->validateXml && doc->intSubset) {
         string errorMessage;
         xmlValidCtxt cvp;
 
@@ -100,7 +100,7 @@ bool xmlPropExists(xmlNodePtr node, const char *name) {
 string xmlGetPropAsString(xmlNodePtr node, const char *name) {
     xmlChar *prop;
 
-    if (xu4.settings->validateXml && !xmlHasProp(node, (const xmlChar *)name))
+    if (tu4.settings->validateXml && !xmlHasProp(node, (const xmlChar *)name))
         return "";
 
     prop = xmlGetProp(node, (const xmlChar *)name);
@@ -122,7 +122,7 @@ int xmlGetPropAsBool(xmlNodePtr node, const char *name) {
     int result;
     xmlChar *prop;
 
-    if (xu4.settings->validateXml && !xmlHasProp(node, (const xmlChar *)name))
+    if (tu4.settings->validateXml && !xmlHasProp(node, (const xmlChar *)name))
         return 0;
 
     prop = xmlGetProp(node, (const xmlChar *)name);
@@ -148,7 +148,7 @@ int xmlGetPropAsInt(xmlNodePtr node, const char *name) {
     long result;
     xmlChar *prop;
 
-    if (xu4.settings->validateXml && !xmlHasProp(node, (const xmlChar *)name))
+    if (tu4.settings->validateXml && !xmlHasProp(node, (const xmlChar *)name))
         return 0;
 
     prop = xmlGetProp(node, (const xmlChar *)name);
@@ -165,7 +165,7 @@ int xmlGetPropAsEnum(xmlNodePtr node, const char *name, const char *enumValues[]
     int result = -1, i;
     xmlChar *prop;
 
-    if (xu4.settings->validateXml && !xmlHasProp(node, (const xmlChar *)name))
+    if (tu4.settings->validateXml && !xmlHasProp(node, (const xmlChar *)name))
         return 0;
 
     prop = xmlGetProp(node, (const xmlChar *)name);

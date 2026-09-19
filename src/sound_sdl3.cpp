@@ -18,7 +18,7 @@
 #include "error.h"
 #include "event.h"
 #include "settings.h"
-#include "xu4.h"
+#include "tu4.h"
 
 static bool audioFunctional = false;
 static bool musicEnabled = false;
@@ -73,9 +73,9 @@ int soundInit(void)
     musicAudio = NULL;
 
     /* Set up volume */
-    musicEnabled = xu4.settings->musicVol > 0;
-    musicSetVolume(xu4.settings->musicVol);
-    soundSetVolume(xu4.settings->soundVol);
+    musicEnabled = tu4.settings->musicVol > 0;
+    musicSetVolume(tu4.settings->musicVol);
+    soundSetVolume(tu4.settings->soundVol);
 
     return 1;
 }
@@ -85,7 +85,7 @@ int soundInit(void)
  */
 static void music_callback(void *data) {
     (void)data;
-    xu4.eventHandler->getTimer()->remove(&music_callback);
+    tu4.eventHandler->getTimer()->remove(&music_callback);
 
     if (musicEnabled) {
         if (!MIX_TrackPlaying(musicTrack))
@@ -101,7 +101,7 @@ void soundDelete(void)
     if (!audioFunctional)
         return;
 
-    xu4.eventHandler->getTimer()->remove(&music_callback);
+    tu4.eventHandler->getTimer()->remove(&music_callback);
 
     /* Free sound effects */
     for (int i = 0; i < SOUND_MAX; i++) {
@@ -131,7 +131,7 @@ void soundDelete(void)
 
 static bool sound_load(Sound sound) {
     if (soundAudio[sound] == NULL) {
-        const char* pathname = xu4.config->soundFile(sound);
+        const char* pathname = tu4.config->soundFile(sound);
         if (pathname) {
             soundAudio[sound] = MIX_LoadAudio(pathname);
             if (!soundAudio[sound]) {
@@ -149,7 +149,7 @@ void soundPlay(Sound sound, bool onlyOnce, int specificDurationInTicks) {
 
     if (sound >= SOUND_MAX)
         return;
-    if (!audioFunctional || !xu4.settings->soundVol)
+    if (!audioFunctional || !tu4.settings->soundVol)
         return;
 
     if (!sound_load(sound))
@@ -179,7 +179,7 @@ static bool music_load(int music) {
         return true;
     }
 
-    const char* pathname = xu4.config->musicFile(music);
+    const char* pathname = tu4.config->musicFile(music);
     if (!pathname)
         return false;
 
@@ -232,7 +232,7 @@ void musicFadeOut(int msec)
         return;
 
     if (MIX_TrackPlaying(musicTrack)) {
-        if (xu4.settings->volumeFades) {
+        if (tu4.settings->volumeFades) {
             /* Convert msec to frames for fade-out */
             int frames = MIX_TrackMSToFrames(musicTrack, msec);
             MIX_StopTrack(musicTrack, frames);
@@ -256,7 +256,7 @@ void musicFadeIn(int msec, bool loadFromMap)
 
             SDL_PropertiesID props = SDL_CreateProperties();
             SDL_SetNumberProperty(props, MIX_PROP_PLAY_LOOPS_NUMBER, -1);
-            if (xu4.settings->volumeFades) {
+            if (tu4.settings->volumeFades) {
                 int frames = MIX_TrackMSToFrames(musicTrack, msec);
                 SDL_SetNumberProperty(props, MIX_PROP_PLAY_FADEIN_FRAMES_NUMBER, frames);
             }
@@ -276,16 +276,16 @@ void musicSetVolume(int volume)
 
 int musicVolumeDec()
 {
-    if (xu4.settings->musicVol > 0)
-        musicSetVolume(--xu4.settings->musicVol);
-    return (xu4.settings->musicVol * 100 / MAX_VOLUME);
+    if (tu4.settings->musicVol > 0)
+        musicSetVolume(--tu4.settings->musicVol);
+    return (tu4.settings->musicVol * 100 / MAX_VOLUME);
 }
 
 int musicVolumeInc()
 {
-    if (xu4.settings->musicVol < MAX_VOLUME)
-        musicSetVolume(++xu4.settings->musicVol);
-    return (xu4.settings->musicVol * 100 / MAX_VOLUME);
+    if (tu4.settings->musicVol < MAX_VOLUME)
+        musicSetVolume(++tu4.settings->musicVol);
+    return (tu4.settings->musicVol * 100 / MAX_VOLUME);
 }
 
 bool musicToggle()
@@ -293,7 +293,7 @@ bool musicToggle()
     if (!audioFunctional)
         return false;
 
-    xu4.eventHandler->getTimer()->remove(&music_callback);
+    tu4.eventHandler->getTimer()->remove(&music_callback);
 
     musicEnabled = !musicEnabled;
     if (musicEnabled)
@@ -301,7 +301,7 @@ bool musicToggle()
     else
         musicFadeOut(1000);
 
-    xu4.eventHandler->getTimer()->add(&music_callback, xu4.settings->gameCyclesPerSecond);
+    tu4.eventHandler->getTimer()->add(&music_callback, tu4.settings->gameCyclesPerSecond);
     return musicEnabled;
 }
 
@@ -314,14 +314,14 @@ void soundSetVolume(int volume) {
 
 int soundVolumeDec()
 {
-    if (xu4.settings->soundVol > 0)
-        soundSetVolume(--xu4.settings->soundVol);
-    return (xu4.settings->soundVol * 100 / MAX_VOLUME);
+    if (tu4.settings->soundVol > 0)
+        soundSetVolume(--tu4.settings->soundVol);
+    return (tu4.settings->soundVol * 100 / MAX_VOLUME);
 }
 
 int soundVolumeInc()
 {
-    if (xu4.settings->soundVol < MAX_VOLUME)
-        soundSetVolume(++xu4.settings->soundVol);
-    return (xu4.settings->soundVol * 100 / MAX_VOLUME);
+    if (tu4.settings->soundVol < MAX_VOLUME)
+        soundSetVolume(++tu4.settings->soundVol);
+    return (tu4.settings->soundVol * 100 / MAX_VOLUME);
 }

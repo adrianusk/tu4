@@ -17,7 +17,7 @@
 #include "stats.h"
 #include "u4.h"
 #include "u4file.h"
-#include "xu4.h"
+#include "tu4.h"
 #ifdef IOS
 #include "ios_helpers.h"
 #endif
@@ -86,7 +86,7 @@ void codexStart() {
     U4IOS::IOSHideGameControllerHelper hideControllsHelper;
 #endif
     screenDisableCursor();
-    screenUpdate(&xu4.game->mapArea, false, true);
+    screenUpdate(&tu4.game->mapArea, false, true);
 
     // make the avatar alone
     c->stats->setView(STATS_PARTY_OVERVIEW);
@@ -111,7 +111,7 @@ void codexStart() {
                 if (codexHandleInfinity(&codex)) {
                     codexHandleEndgame(&codex);
                     codexFree(&codex);
-                    xu4.eventHandler->pushKeyHandler(KeyHandler::ignoreKeys);
+                    tu4.eventHandler->pushKeyHandler(KeyHandler::ignoreKeys);
                     return;     // Don't reset view mode - pause forever.
                 }
             }
@@ -187,7 +187,7 @@ static void codexEject(CodexEjectCode code) {
 
     /* return view to normal and exit the Abyss */
     gameSetViewMode(VIEW_NORMAL);
-    xu4.game->exitToParentMap();
+    tu4.game->exitToParentMap();
     musicPlayLocale();
 
     /**
@@ -203,7 +203,7 @@ static void codexEject(CodexEjectCode code) {
 
     /* finally, finish the turn */
     c->location->turnCompleter->finishTurn();
-    xu4.eventHandler->setController(xu4.game);
+    tu4.eventHandler->setController(tu4.game);
 }
 
 static void codexImpureThoughts() {
@@ -347,7 +347,7 @@ static bool codexHandleInfinity(Codex* codex) {
         screenMessage("\nAbove the din, the voice asks:\n\nIf all eight virtues of the Avatar combine into and are derived from the Three Principles of Truth, Love and Courage...");
         
 
-        xu4.eventHandler->pushController(&pauseController);
+        tu4.eventHandler->pushController(&pauseController);
         pauseController.waitFor();
 
         screenMessage("\n\nThen what is the one thing which encompasses and is the whole of all undeniable Truth, unending Love, and unyielding Courage?\n\n");
@@ -377,10 +377,7 @@ correct:
     // STUBBED for text mode
     const int mid = VIEWPORT_W * TILE_HEIGHT / 2;
     SCALED_VAR;
-    int bx = SCALED(BORDER_WIDTH);
-    int by = SCALED(BORDER_HEIGHT);
     int w  = SCALED(VIEWPORT_W * TILE_HEIGHT);
-    int h  = SCALED(VIEWPORT_H * TILE_HEIGHT);
     int rx;
 
     // STUBBED
@@ -438,7 +435,7 @@ static void codexHandleEndgame(Codex* codex) {
         }
         
 
-        xu4.eventHandler->pushController(&pauseController);
+        tu4.eventHandler->pushController(&pauseController);
         pauseController.waitFor();
     }
 
@@ -451,7 +448,7 @@ static void codexHandleEndgame(Codex* codex) {
                   codex->endgameText2[4].c_str()
 #else
                   "\n turns! Report\n thy feat unto\n"
-                  "the XU4 team at\nSourceForge.net!"
+                  "the TU4 team at\nSourceForge.net!"
 #endif
                             );
 #ifdef IOS

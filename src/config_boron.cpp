@@ -27,11 +27,11 @@
 #include "tileset.h"
 #include "weapon.h"
 #include "u4file.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #include "config_data.cpp"
 
-// Order matches config context in pack-xu4.b.
+// Order matches config context in pack-tu4.b.
 enum ConfigValues
 {
     CI_AUTHOR,
@@ -706,9 +706,9 @@ static Creature* conf_creature(ConfigBoron* cfg, Tileset* ts, UBlockIt& bi)
     cr->leader = numA[1] ? numA[1] : cr->id;
 
     /* adjust basehp according to battle difficulty setting */
-    if (xu4.settings->battleDiff == BattleDiff_Hard)
+    if (tu4.settings->battleDiff == BattleDiff_Hard)
         cr->basehp *= 2;
-    else if (xu4.settings->battleDiff == BattleDiff_Expert)
+    else if (tu4.settings->battleDiff == BattleDiff_Expert)
         cr->basehp *= 4;
 
     attr = ((uint16_t*) numB)[0];
@@ -769,15 +769,15 @@ static Creature* conf_creature(ConfigBoron* cfg, Tileset* ts, UBlockIt& bi)
 // Items (weapons & armor)
 
 const char* Armor::getName() const {
-    return xu4.config->confString(name);
+    return tu4.config->confString(name);
 }
 
 const char* Weapon::getName() const {
-    return xu4.config->confString(name);
+    return tu4.config->confString(name);
 }
 
 const char* Weapon::getAbbrev() const {
-    return xu4.config->confString(abbr);
+    return tu4.config->confString(abbr);
 }
 
 static Armor* conf_armor(UThread* ut, int type, Armor* arm, UBlockIt& bi) {
@@ -1423,7 +1423,7 @@ Map* Config::restoreMap(uint32_t id) {
         bool ok;
 
         if (rmap->type == Map::DUNGEON) {
-            string path(xu4.settings->getUserPath() + DNGMAP_SAV);
+            string path(tu4.settings->getUserPath() + DNGMAP_SAV);
             sav = fopen(path.c_str(), "rb");
         }
         ok = loadMap(rmap, sav);
@@ -1572,14 +1572,9 @@ static ImageInfo* loadImageInfo(const ConfigBoron* cfg, UBlockIt& bi) {
             subimage->height = numA[3];
             celCount         = (sit.it->coord.len > 4) ? numA[4] : 1;
 
-#ifdef USE_GL
-            subimage->celCount = celCount;
-#endif
-#ifndef GPU_RENDER
             // Animated tiles denoted by height. TODO: Eliminate this.
             if (celCount > 1)
                 subimage->height *= celCount;
-#endif
 
             ++subimage;
         }

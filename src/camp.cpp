@@ -13,7 +13,7 @@
 #include "settings.h"
 #include "tileset.h"
 #include "utils.h"
-#include "xu4.h"
+#include "tu4.h"
 
 
 #define CAMP_FADE_OUT_TIME  1500
@@ -26,8 +26,8 @@ CampController::CampController() {
     /* setup camp (possible, but not for-sure combat situation */
     MapId id = (c->location->context & CTX_DUNGEON) ? MAP_CAMP_DNG
                                                     : MAP_CAMP_CON;
-    map = getCombatMap(xu4.config->map(id));
-    xu4.game->setMap(map, true, NULL, this);
+    map = getCombatMap(tu4.config->map(id));
+    tu4.game->setMap(map, true, NULL, this);
 
     camping = true;
     initCreature(NULL);
@@ -45,13 +45,13 @@ void CampController::beginCombat() {
     screenMessage("Resting...\n");
     screenDisableCursor();
 
-    if (EventHandler::wait_msecs(xu4.settings->campTime * 1000))
+    if (EventHandler::wait_msecs(tu4.settings->campTime * 1000))
         return;
 
     screenEnableCursor();
 
     /* Is the party ambushed during their rest? */
-    if (xu4.settings->campingAlwaysCombat || (xu4_random(8) == 0)) {
+    if (tu4.settings->campingAlwaysCombat || (tu4_random(8) == 0)) {
         const Creature *m = Creature::randomAmbushing();
 
         musicPlayLocale();
@@ -80,8 +80,8 @@ void CampController::beginCombat() {
         screenMessage(healed ? "Party Healed!\n" : "No effect.\n");
         c->saveGame->lastcamp = (c->saveGame->moves / CAMP_HEAL_INTERVAL) & 0xffff;
 
-        xu4.eventHandler->popController();  // Auto deleted.
-        xu4.game->exitToParentMap();
+        tu4.eventHandler->popController();  // Auto deleted.
+        tu4.game->exitToParentMap();
         musicFadeIn(CAMP_FADE_IN_TIME, true);
     }
 }
@@ -119,7 +119,7 @@ void InnController::beginCombat() {
     gameUpdateScreen();
 
     /* in the original, the vendor music plays straight through sleeping */
-    if (xu4.settings->enhancements)
+    if (tu4.settings->enhancements)
         musicFadeOut(INN_FADE_OUT_TIME); /* Fade volume out to ease into rest */
 
     EventHandler::wait_msecs(INN_FADE_OUT_TIME);
@@ -131,7 +131,7 @@ void InnController::beginCombat() {
 
     screenDisableCursor();
 
-    if (EventHandler::wait_msecs(xu4.settings->innTime * 1000))
+    if (EventHandler::wait_msecs(tu4.settings->innTime * 1000))
         return;
 
     screenEnableCursor();
@@ -149,7 +149,7 @@ void InnController::beginCombat() {
         maybeMeetIsaac();
     }
     else {
-        if (xu4_random(8) != 0) {
+        if (tu4_random(8) != 0) {
             maybeMeetIsaac();
         }
         else {
@@ -180,12 +180,12 @@ bool InnController::heal() {
 void InnController::maybeMeetIsaac()
 {
     // Does Isaac the Ghost pay a visit to the Avatar?
-    if ((c->location->map->id == 11) && (xu4_random(4) == 0)) {
+    if ((c->location->map->id == 11) && (tu4_random(4) == 0)) {
         City *city = dynamic_cast<City*>(c->location->map);
 
         int pos = discourse_findName(&city->disc, "Isaac");
         if (pos >= 0) {
-            Coords coords(27, xu4_random(3) + 10, c->location->coords.z);
+            Coords coords(27, tu4_random(3) + 10, c->location->coords.z);
 
             // If Isaac is already around, just bring him back to the inn
             for (ObjectDeque::iterator i = c->location->map->objects.begin();
@@ -199,7 +199,7 @@ void InnController::maybeMeetIsaac()
             }
 
             // Otherwise, we need to create Isaac near the Avatar
-            Person *Isaac = new Person(xu4.config->creature(GHOST_ID)->tile);
+            Person *Isaac = new Person(tu4.config->creature(GHOST_ID)->tile);
 
             Isaac->movement = MOVEMENT_WANDER;
             Isaac->setDiscourseId(pos);
@@ -213,26 +213,26 @@ void InnController::maybeMeetIsaac()
 
 void InnController::maybeAmbush()
 {
-    if (xu4.settings->innAlwaysCombat || (xu4_random(8) == 0)) {
+    if (tu4.settings->innAlwaysCombat || (tu4_random(8) == 0)) {
         MapId mapid;
         Creature *creature;
 
         /* Rats seem much more rare than meeting rogues in the streets */
-        if (xu4_random(4) == 0) {
+        if (tu4_random(4) == 0) {
             /* Rats! */
             mapid = MAP_BRICK_CON;
-            creature = c->location->map->addCreature(xu4.config->creature(RAT_ID), c->location->coords);
+            creature = c->location->map->addCreature(tu4.config->creature(RAT_ID), c->location->coords);
             showMessage = true;
         } else {
             /* While strolling down the street, attacked by rogues! */
             mapid = MAP_INN_CON;
-            creature = c->location->map->addCreature(xu4.config->creature(ROGUE_ID), c->location->coords);
+            creature = c->location->map->addCreature(tu4.config->creature(ROGUE_ID), c->location->coords);
             screenMessage("\nIn the middle of the night while out on a stroll...\n\n");
             showMessage = false;
         }
 
-        map = getCombatMap(xu4.config->map(mapid));
-        xu4.game->setMap(map, true, NULL, this);
+        map = getCombatMap(tu4.config->map(mapid));
+        tu4.game->setMap(map, true, NULL, this);
 
         initCreature(creature);
         CombatController::beginCombat();

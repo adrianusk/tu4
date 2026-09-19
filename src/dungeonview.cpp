@@ -18,7 +18,7 @@
 #include "tileset.h"
 #include "u4.h"
 #include "utils.h"
-#include "xu4.h"
+#include "tu4.h"
 
 
 DungeonView::DungeonView(int x, int y, int columns, int rows) : TileView(x, y, rows, columns)
@@ -46,7 +46,7 @@ DungeonView::DungeonView(int x, int y, int columns, int rows) : TileView(x, y, r
         "troll", "gremlin", "reaper", "insect_swarm", "gazer", "phantom"
     };
     for (int i = 0; i < 11; i++) {
-        Symbol sym = xu4.config->intern(npcNames[i]);
+        Symbol sym = tu4.config->intern(npcNames[i]);
         const Tile* t = tileset->getByName(sym);
         if (t) {
             TileId tid = t->getId();
@@ -65,7 +65,7 @@ DungeonView::DungeonView(int x, int y, int columns, int rows) : TileView(x, y, r
         { "dungeon_altar", 47 },
     };
     for (int i = 0; i < 4; i++) {
-        Symbol sym = xu4.config->intern(objTiles[i].name);
+        Symbol sym = tu4.config->intern(objTiles[i].name);
         const Tile* t = tileset->getByName(sym);
         if (t) {
             TileId tid = t->getId();
@@ -75,23 +75,23 @@ DungeonView::DungeonView(int x, int y, int columns, int rows) : TileView(x, y, r
     }
 
     /* Load DUNGOBJ0.ASP data (objects only: 0=fountain,1=chest,2=orb,3=altar) */
-    Symbol obj0Sym = xu4.config->intern("dung_obj0");
-    ImageInfo* obj0Info = xu4.imageMgr->get(obj0Sym);
+    Symbol obj0Sym = tu4.config->intern("dung_obj0");
+    ImageInfo* obj0Info = tu4.imageMgr->get(obj0Sym);
     if (obj0Info && obj0Info->image && obj0Info->image->getAspData())
         dungObj0Data = obj0Info->image->getAspData();
 
     /* Load DUNGNPC1.ASP data */
     dungNpc1Data = NULL;
-    Symbol npc1Sym = xu4.config->intern("dung_npc1");
-    ImageInfo* npc1Info = xu4.imageMgr->get(npc1Sym);
+    Symbol npc1Sym = tu4.config->intern("dung_npc1");
+    ImageInfo* npc1Info = tu4.imageMgr->get(npc1Sym);
     if (npc1Info && npc1Info->image && npc1Info->image->getAspData())
         dungNpc1Data = npc1Info->image->getAspData();
 
     /* Load DUNGOBJ1.ASP data (objects only: 0=fountain,1=chest,2=orb;
        no altar 8x8 record yet -- altar falls through to 4x4 at dist 1+) */
     dungObj1Data = NULL;
-    Symbol obj1Sym = xu4.config->intern("dung_obj1");
-    ImageInfo* obj1Info = xu4.imageMgr->get(obj1Sym);
+    Symbol obj1Sym = tu4.config->intern("dung_obj1");
+    ImageInfo* obj1Info = tu4.imageMgr->get(obj1Sym);
     if (obj1Info && obj1Info->image && obj1Info->image->getAspData())
         dungObj1Data = obj1Info->image->getAspData();
 
@@ -242,12 +242,12 @@ void DungeonView::drawInDungeon(const MapTile& mt, int x_offset, int distance, D
         int size = fillSize[distance];
 
         /* Get the 4x4 tile data from SHAPES.ASP */
-        ImageInfo* tilesInfo = xu4.imageMgr->get(BKGD_SHAPES);
+        ImageInfo* tilesInfo = tu4.imageMgr->get(BKGD_SHAPES);
         if (!tilesInfo || !tilesInfo->image || !tilesInfo->image->getAspData())
             return;
 
         const uint8_t* shapes = tilesInfo->image->getAspData();
-        const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+        const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
         uint8_t uid = usaveIds->ultimaId(mt);
         const uint8_t* tileData = shapes + uid * 32; /* 4 rows x 4 cols x 2 bytes */
 
@@ -314,7 +314,7 @@ void DungeonView::drawInDungeon(const MapTile& mt, int x_offset, int distance, D
      */
 
     /* Determine if we're using an EGA-style text theme */
-    const std::string& style = xu4.settings->textStyle;
+    const std::string& style = tu4.settings->textStyle;
     bool egaStyle = (style.size() >= 3 &&
                      style.compare(style.size() - 3, 3, "EGA") == 0);
 
@@ -557,12 +557,12 @@ void DungeonView::drawInDungeon(const MapTile& mt, int x_offset, int distance, D
         }
     }
 
-    ImageInfo* tilesInfo = xu4.imageMgr->get(BKGD_SHAPES);
+    ImageInfo* tilesInfo = tu4.imageMgr->get(BKGD_SHAPES);
     if (!tilesInfo || !tilesInfo->image || !tilesInfo->image->getAspData())
         return;
 
     const uint8_t* shapes = tilesInfo->image->getAspData();
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
 
     /*
      * Resolve the MYSHAPES save id, honoring the tile's image override
@@ -574,10 +574,10 @@ void DungeonView::drawInDungeon(const MapTile& mt, int x_offset, int distance, D
      */
     MapTile shapeTile = mt;
     if (tile && tile->imageName) {
-        const char* imgName = xu4.config->symbolName(tile->imageName);
+        const char* imgName = tu4.config->symbolName(tile->imageName);
         if (imgName && strncmp(imgName, "tile_", 5) == 0) {
             const Tile* baseTile =
-                tileset->getByName(xu4.config->intern(imgName + 5));
+                tileset->getByName(tu4.config->intern(imgName + 5));
             if (baseTile)
                 shapeTile = MapTile(baseTile->getId(), mt.frame);
         }
@@ -642,9 +642,9 @@ void DungeonView::drawInDungeon(const MapTile& mt, int x_offset, int distance, D
  * One trap in range may be shown after a delay.
  */
 void DungeonView::detectTraps() {
-    spotTrapRange = xu4_random(4);
+    spotTrapRange = tu4_random(4);
     if (spotTrapRange < 3)
-        spotTrapTime = c->commandTimer + 200 + xu4_random(3000);
+        spotTrapTime = c->commandTimer + 200 + tu4_random(3000);
     else
         spotTrapRange = -1;
 }
@@ -917,13 +917,13 @@ void DungeonView::cacheGraphicData() {
     int i;
 
     for (i = 0; i < 84; ++i) {
-        name = xu4.config->intern(dngGraphicInfo[i].imageName);
-        graphic[i].info = xu4.imageMgr->imageInfo(name, &graphic[i].sub);
+        name = tu4.config->intern(dngGraphicInfo[i].imageName);
+        graphic[i].info = tu4.imageMgr->imageInfo(name, &graphic[i].sub);
     }
     // Cache right-fill entries (84-89) into static storage.
     for (i = 84; i < GRAPHIC_COUNT; ++i) {
-        name = xu4.config->intern(dngGraphicInfo[i].imageName);
-        rgtFillGraphic[i - 84].info = xu4.imageMgr->imageInfo(name, &rgtFillGraphic[i - 84].sub);
+        name = tu4.config->intern(dngGraphicInfo[i].imageName);
+        rgtFillGraphic[i - 84].info = tu4.imageMgr->imageInfo(name, &rgtFillGraphic[i - 84].sub);
     }
 
     /* Text mode always uses EGA-style dungeon layout */

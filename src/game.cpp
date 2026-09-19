@@ -29,7 +29,7 @@
 #include "u4.h"
 #include "utils.h"
 #include "weapon.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #ifdef IOS
 #include "ios_helpers.h"
@@ -134,7 +134,7 @@ bool AlphaActionController::keyPressed(int key) {
 
 int AlphaActionController::get(char lastValidLetter, const string &prompt, EventHandler *eh) {
     if (!eh)
-        eh = xu4.eventHandler;
+        eh = tu4.eventHandler;
 
     AlphaActionController ctrl(lastValidLetter, prompt);
     eh->pushController(&ctrl);
@@ -165,7 +165,7 @@ GameController::~GameController() {
 bool GameController::present() {
     screenEraseTextArea(0, 0, SCREEN_COLS, SCREEN_ROWS);
 
-    if (c == NULL || (xu4.intro && xu4.intro->hasInitiatedNewGame()))
+    if (c == NULL || (tu4.intro && tu4.intro->hasInitiatedNewGame()))
         return initContext();   // Loads current savegame
 
     // Inits screen stuff without renewing game
@@ -176,23 +176,23 @@ bool GameController::present() {
 
 void GameController::conclude() {
     mapArea.clear();
-    xu4.eventHandler->popMouseAreaSet();
+    tu4.eventHandler->popMouseAreaSet();
     screenSetMouseCursor(MC_DEFAULT);
 }
 
 void GameController::initScreenWithoutReloadingState()
 {
     musicPlayLocale();
-    xu4.imageMgr->get(BKGD_BORDERS)->image->draw(0, 0);
+    tu4.imageMgr->get(BKGD_BORDERS)->image->draw(0, 0);
     c->stats->update(); /* draw the party stats */
 
     screenEnableCursor();
     screenMessage("Press Alt-h for help\n");
     screenPrompt();
 
-    xu4.eventHandler->pushMouseAreaSet(mouseAreas);
+    tu4.eventHandler->pushMouseAreaSet(mouseAreas);
 
-    xu4.eventHandler->setScreenUpdate(&gameUpdateScreen);
+    tu4.eventHandler->setScreenUpdate(&gameUpdateScreen);
 }
 
 
@@ -214,7 +214,7 @@ public:
  */
 bool GameController::initContext() {
     Debug gameDbg("debug/game.txt", "Game");
-    const Settings& settings = *xu4.settings;
+    const Settings& settings = *tu4.settings;
 
     TRACE(gameDbg, "gameInit() running.");
 
@@ -226,9 +226,9 @@ bool GameController::initContext() {
     screenTextAt(13, 11, "%s", "Loading Game...");
 
     /* load in the save game (if not done by intro) */
-    if (! xu4.saveGame) {
+    if (! tu4.saveGame) {
         if (! saveGameLoad()) {
-            xu4.stage = StageIntro;     // Go back to intro.
+            tu4.stage = StageIntro;     // Go back to intro.
             return false;
         }
     }
@@ -237,7 +237,7 @@ bool GameController::initContext() {
     /* initialize the global game context */
     delete c;
     c = new Context;
-    c->saveGame = xu4.saveGame;
+    c->saveGame = tu4.saveGame;
 
     /* initialize conversation and game state variables */
     c->line = TEXT_AREA_H - 1;
@@ -258,13 +258,13 @@ bool GameController::initContext() {
     c->party = new Party(c->saveGame);
 
     /* set the map to the world map by default */
-    setMap(xu4.config->map(MAP_WORLD), 0, NULL);
+    setMap(tu4.config->map(MAP_WORLD), 0, NULL);
     c->location->map->clearObjects();
 
     TRACE_LOCAL(gameDbg, "World map set."); ++pb;
 
     /* initialize our start location */
-    Map *map = xu4.config->restoreMap(MapId(c->saveGame->location));
+    Map *map = tu4.config->restoreMap(MapId(c->saveGame->location));
     TRACE_LOCAL(gameDbg, "Initializing start location.");
 
     /* if our map is not the world map, then load our map */
@@ -427,10 +427,10 @@ void gameSetViewMode(ViewMode newMode) {
         case VIEW_GEM:
         case VIEW_CUTSCENE:
         case VIEW_CUTSCENE_MAP:
-            xu4.game->cutScene = true;
+            tu4.game->cutScene = true;
             break;
         default:
-            xu4.game->cutScene = false;
+            tu4.game->cutScene = false;
             break;
     }
 
@@ -441,13 +441,13 @@ void gameUpdateScreen() {
     switch (c->location->viewMode) {
     case VIEW_NORMAL:
     case VIEW_CUTSCENE_MAP:
-        screenUpdate(&xu4.game->mapArea, true, false);
+        screenUpdate(&tu4.game->mapArea, true, false);
         break;
     case VIEW_GEM:
         screenGemUpdate();
         break;
     case VIEW_DUNGEON:
-        screenUpdate(&xu4.game->mapArea, true, false);
+        screenUpdate(&tu4.game->mapArea, true, false);
         break;
     case VIEW_CUTSCENE: /* the screen updates will be handled elsewhere */
         break;
@@ -561,7 +561,7 @@ int GameController::exitToParentMap() {
 void GameController::finishTurn() {
     gameStampCommandTime();
 
-    while (xu4.stage == StagePlay) {
+    while (tu4.stage == StagePlay) {
         Map* map = c->location->map;
 
         /* adjust food and moves */
@@ -644,29 +644,21 @@ void GameController::finishTurn() {
  * by weapons, cannon fire, spells, etc.
  */
 void GameController::flashTile(const Coords &coords, MapTile tile, int frames) {
-#ifdef GPU_RENDER
-    int fx = xu4.game->mapArea.showEffect(coords, tile.id);
-#else
     Map* map = c->location->map;
     map->annotations.add(coords, tile, true);
-    screenTileUpdate(&xu4.game->mapArea, coords);
+    screenTileUpdate(&tu4.game->mapArea, coords);
     screenUploadToGPU();
-#endif
 
     EventHandler::wait_msecs(frames * 1000 /
-                             xu4.settings->screenAnimationFramesPerSecond);
+                             tu4.settings->screenAnimationFramesPerSecond);
 
-#ifdef GPU_RENDER
-    xu4.game->mapArea.removeEffect(fx);
-#else
     map->annotations.remove(coords, tile);
-    screenTileUpdate(&xu4.game->mapArea, coords);
-#endif
+    screenTileUpdate(&tu4.game->mapArea, coords);
 }
 
 void GameController::flashTile(const Coords &coords, Symbol tilename, int timeFactor) {
     const Tile *tile = Tileset::findTileByName(tilename);
-    ASSERT(tile, "no tile named '%s' found in tileset", xu4.config->symbolName(tilename));
+    ASSERT(tile, "no tile named '%s' found in tileset", tu4.config->symbolName(tilename));
     flashTile(coords, MapTile(tile->getId()), timeFactor);
 }
 
@@ -681,7 +673,7 @@ void GameController::gameNotice(int sender, void* eventData, void* user) {
 
         case Map::COMBAT:
             // FIXME: let the combat controller handle it
-            dynamic_cast<CombatController *>(xu4.eventHandler->getController())->movePartyMember(*ev);
+            dynamic_cast<CombatController *>(tu4.eventHandler->getController())->movePartyMember(*ev);
             break;
 
         default:
@@ -730,7 +722,7 @@ void gameSpellEffect(int spell, int player, Sound sound) {
     if (player >= 0)
         c->stats->highlightPlayer(player);
 
-    time = xu4.settings->spellEffectSpeed * 800 / xu4.settings->gameCyclesPerSecond;
+    time = tu4.settings->spellEffectSpeed * 800 / tu4.settings->gameCyclesPerSecond;
     soundPlay(sound, false, time);
 
     ///The following effect multipliers are not accurate
@@ -754,9 +746,9 @@ void gameSpellEffect(int spell, int player, Sound sound) {
     case Spell::SFX_TREMOR:
     case Spell::SFX_INVERT:
         gameUpdateScreen();
-        xu4.game->mapArea.highlight(0, 0, VIEWPORT_W * TILE_WIDTH, VIEWPORT_H * TILE_HEIGHT);
+        tu4.game->mapArea.highlight(0, 0, VIEWPORT_W * TILE_WIDTH, VIEWPORT_H * TILE_HEIGHT);
         EventHandler::wait_msecs(time);
-        xu4.game->mapArea.unhighlight();
+        tu4.game->mapArea.unhighlight();
 
         if (effect == Spell::SFX_TREMOR) {
             gameUpdateScreen();
@@ -788,7 +780,7 @@ void gameBadCommand() {
  * command - 'a' for attack, 't' for talk, etc.
  */
 bool GameController::keyPressed(int key) {
-    Settings& settings = *xu4.settings;
+    Settings& settings = *tu4.settings;
     bool valid = true;
     int endTurn = 1;
 
@@ -918,7 +910,7 @@ bool GameController::keyPressed(int key) {
         case U4_FKEY+8:
 #if 1
             if (settings.debug && (c->location->context & CTX_WORLDMAP)) {
-                setMap(xu4.config->map(MAP_DECEIT), 1, NULL);
+                setMap(tu4.config->map(MAP_DECEIT), 1, NULL);
                 c->location->coords = Coords(1, 0, 7);
                 c->saveGame->orientation = DIR_SOUTH;
             }
@@ -930,7 +922,7 @@ bool GameController::keyPressed(int key) {
 
         case U4_FKEY+9:
             if (settings.debug && (c->location->context & CTX_WORLDMAP)) {
-                setMap(xu4.config->map(MAP_DESPISE), 1, NULL);
+                setMap(tu4.config->map(MAP_DESPISE), 1, NULL);
                 c->location->coords = Coords(3, 2, 7);
                 c->saveGame->orientation = DIR_SOUTH;
             }
@@ -939,7 +931,7 @@ bool GameController::keyPressed(int key) {
 
         case U4_FKEY+10:
             if (settings.debug && (c->location->context & CTX_WORLDMAP)) {
-                setMap(xu4.config->map(MAP_DESTARD), 1, NULL);
+                setMap(tu4.config->map(MAP_DESTARD), 1, NULL);
                 c->location->coords = Coords(7, 6, 7);
                 c->saveGame->orientation = DIR_SOUTH;
             }
@@ -958,7 +950,7 @@ bool GameController::keyPressed(int key) {
             if (settings.debug) {
                 screenMessage("Cmd (h = help):");
                 CheatMenuController cheatMenuController(this);
-                xu4.eventHandler->pushController(&cheatMenuController);
+                tu4.eventHandler->pushController(&cheatMenuController);
                 cheatMenuController.waitFor();
             }
             else valid = false;
@@ -977,7 +969,7 @@ bool GameController::keyPressed(int key) {
                 screenPrompt();
 
                 /* Help! send me to Lord British (who conveniently is right around where you are)! */
-                setMap(xu4.config->map(MAP_CASTLE_LB2), 1, NULL);
+                setMap(tu4.config->map(MAP_CASTLE_LB2), 1, NULL);
                 c->location->coords.x = 19;
                 c->location->coords.y = 8;
                 c->location->coords.z = 0;
@@ -1012,7 +1004,7 @@ bool GameController::keyPressed(int key) {
                     settings.gameCyclesPerSecond = DEFAULT_CYCLES_PER_SECOND;
 
                 if (old_cycles != settings.gameCyclesPerSecond) {
-                    xu4.eventHandler->setTimerInterval(1000 /
+                    tu4.eventHandler->setTimerInterval(1000 /
                                                 settings.gameCyclesPerSecond);
 
                     if (settings.gameCyclesPerSecond == DEFAULT_CYCLES_PER_SECOND)
@@ -1165,7 +1157,7 @@ bool GameController::keyPressed(int key) {
         case 'q':
             screenMessage("Quit & Save...\n%d moves\n", c->saveGame->moves);
             if (c->location->context & CTX_CAN_SAVE_GAME) {
-                gameSave(xu4.settings->getUserPath().c_str());
+                gameSave(tu4.settings->getUserPath().c_str());
                 screenMessage("Press Alt-x to quit\n");
             }
             else screenMessage("%cNot here!%c\n", FG_GREY, FG_WHITE);
@@ -1268,7 +1260,7 @@ bool GameController::keyPressed(int key) {
                 /* first teleport to the abyss */
                 c->location->coords.x = 0xe9;
                 c->location->coords.y = 0xe9;
-                setMap(xu4.config->map(MAP_ABYSS), 1, NULL);
+                setMap(tu4.config->map(MAP_ABYSS), 1, NULL);
                 /* then to the final altar */
                 c->location->coords.x = 7;
                 c->location->coords.y = 7;
@@ -1295,7 +1287,7 @@ bool GameController::keyPressed(int key) {
                           "i: Ignite torch\n"
                           "(more)");
 
-            xu4.eventHandler->pushController(&pauseController);
+            tu4.eventHandler->pushController(&pauseController);
             pauseController.waitFor();
 
             screenMessage("\n"
@@ -1312,7 +1304,7 @@ bool GameController::keyPressed(int key) {
                           "t: Talk\n"
                           "(more)");
 
-            xu4.eventHandler->pushController(&pauseController);
+            tu4.eventHandler->pushController(&pauseController);
             pauseController.waitFor();
 
             screenMessage("\n"
@@ -1329,7 +1321,7 @@ bool GameController::keyPressed(int key) {
                           ">: + Sound Vol\n"
                           "(more)");
 
-            xu4.eventHandler->pushController(&pauseController);
+            tu4.eventHandler->pushController(&pauseController);
             pauseController.waitFor();
 
             screenMessage("\n"
@@ -1362,20 +1354,20 @@ bool GameController::keyPressed(int key) {
                     break;
                 }
 
-                xu4.eventHandler->setScreenUpdate(NULL);
+                tu4.eventHandler->setScreenUpdate(NULL);
 
                 // Fade out the music and hide the cursor
                 // before returning to the menu.
                 musicFadeOut(1000);
                 screenHideCursor();
 
-                xu4.stage = StageIntro;
-                xu4.eventHandler->setControllerDone();
+                tu4.stage = StageIntro;
+                tu4.eventHandler->setControllerDone();
             }
             break;
 
         case 'v' + U4_ALT:
-            screenMessage("XU4 %s\n", VERSION);
+            screenMessage("TU4 %s\n", VERSION);
             endTurn = false;
             break;
 
@@ -1411,7 +1403,7 @@ bool GameController::keyPressed(int key) {
         }
 
     if (valid && endTurn) {
-        if (xu4.eventHandler->getController() == xu4.game)
+        if (tu4.eventHandler->getController() == tu4.game)
             c->location->turnCompleter->finishTurn();
     }
     else if (!endTurn) {
@@ -1448,7 +1440,7 @@ int gameGetPlayer(bool canBeDisabled, bool canBeActivePlayer) {
         else
         {
             ReadPlayerController readPlayerController;
-            xu4.eventHandler->pushController(&readPlayerController);
+            tu4.eventHandler->pushController(&readPlayerController);
             player = readPlayerController.waitFor();
             if (player >= 0)
                 c->col--;   // Will display the name in place of the number
@@ -1485,7 +1477,7 @@ Direction gameGetDirection() {
     U4IOS::IOSDirectionHelper directionPopup;
 #endif
 
-    xu4.eventHandler->pushController(&dirController);
+    tu4.eventHandler->pushController(&dirController);
     Direction dir = dirController.waitFor();
 
     screenMessage("\b\b\b\b");
@@ -1925,7 +1917,7 @@ bool fireAt(const Coords &coords, bool originAvatar) {
         /* only the avatar can hurt other creatures with cannon fire */
         else if (originAvatar) {
             GameController::flashTile(coords, Tile::sym.hitFlash, 4);
-            if (xu4_random(4) == 0) /* reverse-engineered from u4dos */
+            if (tu4_random(4) == 0) /* reverse-engineered from u4dos */
                 c->location->map->removeObject(obj);
         }
 
@@ -2003,18 +1995,18 @@ void getChest(int player)
  **/
 bool getChestTrapHandler(int player) {
     TileEffect trapType;
-    int randNum = xu4_random(4);
+    int randNum = tu4_random(4);
 
     /* Do we use u4dos's way of trap-determination, or the original intended way? */
-    int passTest = (xu4.settings->enhancements && xu4.settings->enhancementsOptions.c64chestTraps) ?
-        (xu4_random(2) == 0) : /* xu4-enhanced */
+    int passTest = (tu4.settings->enhancements && tu4.settings->enhancementsOptions.c64chestTraps) ?
+        (tu4_random(2) == 0) : /* xu4-enhanced */
         ((randNum & 1) == 0); /* u4dos original way (only allows even numbers through, so only acid and poison show) */
 
     /* Chest is trapped! 50/50 chance */
     if (passTest)
     {
         /* Figure out which trap the chest has */
-        switch(randNum & xu4_random(4)) {
+        switch(randNum & tu4_random(4)) {
         case 0: trapType = EFFECT_FIRE; break;   /* acid trap (56% chance - 9/16) */
         case 1: trapType = EFFECT_SLEEP; break;  /* sleep trap (19% chance - 3/16) */
         case 2: trapType = EFFECT_POISON; break; /* poison trap (19% chance - 3/16) */
@@ -2038,7 +2030,7 @@ bool getChestTrapHandler(int player) {
         // evaded by testing the PC's dex
         //
         if ((player >= 0) &&
-            (c->saveGame->players[player].dex + 25 < xu4_random(100)))
+            (c->saveGame->players[player].dex + 25 < tu4_random(100)))
         {
             Map* map = c->location->map;
 
@@ -2142,29 +2134,29 @@ void GameController::updateMoons(bool showmoongates)
         if (showmoongates)
         {
             AnnotationList* annot = &c->location->map->annotations;
-            const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+            const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
 
             /* update the moongates if trammel changed */
             if (trammelSubphase == 0) {
                 GATE_STATE(' ', oldTrammel)
                 GATE_STATE('.', trammel)
-                gate = xu4.config->moongateCoords(oldTrammel);
+                gate = tu4.config->moongateCoords(oldTrammel);
                 if (gate)
                     annot->remove(*gate, usaveIds->moduleId(0x40));
-                gate = xu4.config->moongateCoords(trammel);
+                gate = tu4.config->moongateCoords(trammel);
                 if (gate)
                     annot->add(*gate, usaveIds->moduleId(0x40));
             }
             else if (trammelSubphase == 1) {
                 GATE_STATE('^', trammel)
-                gate = xu4.config->moongateCoords(trammel);
+                gate = tu4.config->moongateCoords(trammel);
                 if (gate) {
                     annot->remove(*gate, usaveIds->moduleId(0x40));
                     annot->add(*gate, usaveIds->moduleId(0x41));
                 }
             }
             else if (trammelSubphase == 2) {
-                gate = xu4.config->moongateCoords(trammel);
+                gate = tu4.config->moongateCoords(trammel);
                 if (gate) {
                     annot->remove(*gate, usaveIds->moduleId(0x41));
                     annot->add(*gate, usaveIds->moduleId(0x42));
@@ -2172,14 +2164,14 @@ void GameController::updateMoons(bool showmoongates)
             }
             else if (trammelSubphase == 3) {
                 GATE_STATE('O', trammel)
-                gate = xu4.config->moongateCoords(trammel);
+                gate = tu4.config->moongateCoords(trammel);
                 if (gate) {
                     annot->remove(*gate, usaveIds->moduleId(0x42));
                     annot->add(*gate, usaveIds->moduleId(0x43));
                 }
             }
             else if ((trammelSubphase > 3) && (trammelSubphase < (MOON_SECONDS_PER_PHASE * 4 * 3) - 3)) {
-                gate = xu4.config->moongateCoords(trammel);
+                gate = tu4.config->moongateCoords(trammel);
                 if (gate) {
                     annot->remove(*gate, usaveIds->moduleId(0x43));
                     annot->add(*gate, usaveIds->moduleId(0x43));
@@ -2187,14 +2179,14 @@ void GameController::updateMoons(bool showmoongates)
             }
             else if (trammelSubphase == (MOON_SECONDS_PER_PHASE * 4 * 3) - 3) {
                 GATE_STATE('v', trammel)
-                gate = xu4.config->moongateCoords(trammel);
+                gate = tu4.config->moongateCoords(trammel);
                 if (gate) {
                     annot->remove(*gate, usaveIds->moduleId(0x43));
                     annot->add(*gate, usaveIds->moduleId(0x42));
                 }
             }
             else if (trammelSubphase == (MOON_SECONDS_PER_PHASE * 4 * 3) - 2) {
-                gate = xu4.config->moongateCoords(trammel);
+                gate = tu4.config->moongateCoords(trammel);
                 if (gate) {
                     annot->remove(*gate, usaveIds->moduleId(0x42));
                     annot->add(*gate, usaveIds->moduleId(0x41));
@@ -2202,7 +2194,7 @@ void GameController::updateMoons(bool showmoongates)
             }
             else if (trammelSubphase == (MOON_SECONDS_PER_PHASE * 4 * 3) - 1) {
                 GATE_STATE('.', trammel)
-                gate = xu4.config->moongateCoords(trammel);
+                gate = tu4.config->moongateCoords(trammel);
                 if (gate) {
                     annot->remove(*gate, usaveIds->moduleId(0x41));
                     annot->add(*gate, usaveIds->moduleId(0x40));
@@ -2219,7 +2211,7 @@ void GameController::avatarMoved(MoveEvent &event) {
     if (event.userEvent) {
 
         // is filterMoveMessages even used?  it doesn't look like the option is hooked up in the configuration menu
-        if (!xu4.settings->filterMoveMessages) {
+        if (!tu4.settings->filterMoveMessages) {
             switch (c->transportContext) {
                 case TRANSPORT_FOOT:
                 case TRANSPORT_HORSE:
@@ -2246,7 +2238,7 @@ horse_moved:
         if (event.result & MOVE_BLOCKED) {
 
             /* if shortcuts are enabled, try them! */
-            if (xu4.settings->shortcutCommands) {
+            if (tu4.settings->shortcutCommands) {
                 Coords new_coords = c->location->coords;
                 const Tile* tile;
 
@@ -2266,7 +2258,7 @@ horse_moved:
             }
 
             /* if we're still blocked */
-            if ((event.result & MOVE_BLOCKED) && !xu4.settings->filterMoveMessages) {
+            if ((event.result & MOVE_BLOCKED) && !tu4.settings->filterMoveMessages) {
                 soundPlay(SOUND_BLOCKED, false);
                 screenMessage("%cBlocked!%c\n", FG_GREY, FG_WHITE);
             }
@@ -2319,7 +2311,7 @@ void GameController::avatarMovedInDungeon(MoveEvent &event) {
     Direction orientation = (Direction) c->saveGame->orientation;
     Direction realDir = dirNormalize(orientation, event.dir);
 
-    if (!xu4.settings->filterMoveMessages) {
+    if (!tu4.settings->filterMoveMessages) {
         if (event.userEvent) {
             const char* msg;
             if (event.result & MOVE_TURNED) {
@@ -2483,7 +2475,7 @@ void readyWeapon(int player) {
         return;
 
     PartyMember *p = c->party->member(player);
-    const Weapon *w = xu4.config->weapon(weapon);
+    const Weapon *w = tu4.config->weapon(weapon);
 
 
     if (!w) {
@@ -2596,7 +2588,7 @@ void mixReagents() {
             c->stats->resetReagentsMenu();
 
             c->stats->setView(MIX_REAGENTS);
-            if (xu4.settings->enhancements && xu4.settings->enhancementsOptions.u5spellMixing)
+            if (tu4.settings->enhancements && tu4.settings->enhancementsOptions.u5spellMixing)
                 done = mixReagentsForSpellU5(spell);
             else
                 done = mixReagentsForSpellU4(spell);
@@ -2616,7 +2608,7 @@ bool mixReagentsForSpellU4(int spell) {
 
     screenMessage("Reagent: ");
 
-    while (xu4.stage == StagePlay) {
+    while (tu4.stage == StagePlay) {
         int choice = ReadChoiceController::get("abcdefgh\n\r \033");
 
         // done selecting reagents? mix it up and prompt to mix
@@ -2656,7 +2648,7 @@ bool mixReagentsForSpellU5(int spell) {
 
     c->stats->getReagentsMenu()->reset(); // reset the menu, highlighting the first item
     ReagentsMenuController getReagentsController(c->stats->getReagentsMenu(), &ingredients, c->stats->getMainArea());
-    xu4.eventHandler->pushController(&getReagentsController);
+    tu4.eventHandler->pushController(&getReagentsController);
     getReagentsController.waitFor();
 
     c->stats->getMainArea()->disableCursor();
@@ -2713,10 +2705,10 @@ void newOrder() {
 bool gamePeerCity(int city, void *data) {
     Map *peerMap;
 
-    peerMap = xu4.config->map((MapId)(city+1));
+    peerMap = tu4.config->map((MapId)(city+1));
 
     if (peerMap != NULL) {
-        xu4.game->setMap(peerMap, 1, NULL);
+        tu4.game->setMap(peerMap, 1, NULL);
         gameSetViewMode(VIEW_GEM);
         screenDisableCursor();
 
@@ -2727,7 +2719,7 @@ bool gamePeerCity(int city, void *data) {
 #endif
         ReadChoiceController::get("\015 \033");
 
-        xu4.game->exitToParentMap();
+        tu4.game->exitToParentMap();
         screenEnableCursor();
         gameSetViewMode(VIEW_NORMAL);
         return true;
@@ -2783,12 +2775,12 @@ static bool talkAt(const Coords &coords, int distance) {
 
     PersonNpcType npcType = speaker->getNpcType();
     if (speaker->isVendor()) {
-        return discourse_run(&xu4.game->vendorDisc,
+        return discourse_run(&tu4.game->vendorDisc,
                              npcType - NPC_VENDOR_WEAPONS, speaker);
     }
 
     if (npcType >= NPC_LORD_BRITISH) {
-        Discourse* dis = &xu4.game->castleDisc;
+        Discourse* dis = &tu4.game->castleDisc;
         if (! dis->convCount)
             discourse_load(dis, "castle");
         return discourse_run(dis, npcType - NPC_LORD_BRITISH, speaker);
@@ -2830,7 +2822,7 @@ void wearArmor(int player) {
     if (armor == -1)
         return;
 
-    const Armor *a = xu4.config->armor(armor);
+    const Armor *a = tu4.config->armor(armor);
     PartyMember *p = c->party->member(player);
 
     if (!a) {
@@ -2872,7 +2864,7 @@ void ztatsFor(int player) {
     U4IOS::IOSHideActionKeysHelper hideExtraControls;
 #endif
     ZtatsController ctrl;
-    xu4.eventHandler->pushController(&ctrl);
+    tu4.eventHandler->pushController(&ctrl);
     ctrl.waitFor();
 }
 
@@ -2886,7 +2878,7 @@ void GameController::timerFired() {
         screenUploadToGPU();
     } else {
         if (++c->windCounter >= MOON_SECONDS_PER_PHASE * 4) {
-            if (xu4_random(4) == 1 && !c->windLock)
+            if (tu4_random(4) == 1 && !c->windLock)
                 c->windDirection = dirRandomDir(MASK_DIR_ALL);
             c->windCounter = 0;
         }
@@ -2904,9 +2896,9 @@ void GameController::timerFired() {
         /*
          * force pass if no commands within last 20 seconds
          */
-        Controller *controller = xu4.eventHandler->getController();
+        Controller *controller = tu4.eventHandler->getController();
         if (dynamic_cast<TurnController *>(controller)) {
-            c->commandTimer += 1000 / xu4.settings->gameCyclesPerSecond;
+            c->commandTimer += 1000 / tu4.settings->gameCyclesPerSecond;
             if (gameTimeSinceLastCommand() > 20) {
                 /* pass the turn, and redraw the text area prompt */
                 controller->keyPressed(U4_SPACE);
@@ -2982,7 +2974,7 @@ void GameController::checkSpecialCreatures(Direction dir) {
         coords.y == 0xe0) {
         Object *obj;
         for (i = 0; i < 8; i++) {
-            obj = c->location->map->addCreature(xu4.config->creature(PIRATE_ID), Coords(pirateInfo[i].x, pirateInfo[i].y));
+            obj = c->location->map->addCreature(tu4.config->creature(PIRATE_ID), Coords(pirateInfo[i].x, pirateInfo[i].y));
             obj->setDirection(pirateInfo[i].dir);
         }
     }
@@ -2996,16 +2988,16 @@ void GameController::checkSpecialCreatures(Direction dir) {
         coords.y >= 212 && coords.y < 217 &&
         c->aura.getType() != Aura::HORN) {
         for (i = 0; i < 8; i++)
-            c->location->map->addCreature(xu4.config->creature(DAEMON_ID),
+            c->location->map->addCreature(tu4.config->creature(DAEMON_ID),
                                           Coords(231, coords.y + 1, coords.z));
     }
 }
 
 static bool activeMoongateAt(int trammel, int felucca, const Coords& src,
                              Coords& dest) {
-    const Coords* mc = xu4.config->moongateCoords(trammel);
+    const Coords* mc = tu4.config->moongateCoords(trammel);
     if (mc && (src == *mc)) {
-        mc = xu4.config->moongateCoords(felucca);
+        mc = tu4.config->moongateCoords(felucca);
         if (mc) {
             dest = *mc;
             return true;
@@ -3037,7 +3029,7 @@ bool GameController::checkMoongates() {
     if (c->saveGame->trammelphase == 4 &&
         c->saveGame->feluccaphase == 4 &&
         c->party->canEnterShrine(VIRT_SPIRITUALITY)) {
-        Shrine* shrine = static_cast<Shrine*>(xu4.config->map(MAP_SHRINE_SPIRITUALITY));
+        Shrine* shrine = static_cast<Shrine*>(tu4.config->map(MAP_SHRINE_SPIRITUALITY));
         setMap(shrine, 1, NULL);
         musicPlayLocale();
         shrine->enter();
@@ -3055,7 +3047,7 @@ void gameFixupObjects(Map *map, const SaveGameMonsterRecord* table) {
     const SaveGameMonsterRecord *it;
     Object* obj;
     MapTile tile, oldTile;
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
     int creatureLimit = (map->type == Map::DUNGEON) ? MONSTERTABLE_SIZE
                                           : MONSTERTABLE_CREATURES_SIZE;
 
@@ -3235,9 +3227,9 @@ void gameDamageParty(int minDamage, int maxDamage) {
     int lastdmged = -1;
 
     for (i = 0; i < c->party->size(); i++) {
-        if (xu4_random(2) == 0) {
+        if (tu4_random(2) == 0) {
             damage = ((minDamage >= 0) && (minDamage < maxDamage)) ?
-                xu4_random((maxDamage + 1) - minDamage) + minDamage :
+                tu4_random((maxDamage + 1) - minDamage) + minDamage :
                 maxDamage;
             c->party->member(i)->applyDamage(c->location->map, damage);
             c->stats->highlightPlayer(i);
@@ -3262,7 +3254,7 @@ void gameDamageShip(int minDamage, int maxDamage) {
 
     if (c->transportContext == TRANSPORT_SHIP) {
         damage = ((minDamage >= 0) && (minDamage < maxDamage)) ?
-            xu4_random((maxDamage + 1) - minDamage) + minDamage :
+            tu4_random((maxDamage + 1) - minDamage) + minDamage :
             maxDamage;
 
         screenShake(1);
@@ -3330,7 +3322,7 @@ void GameController::checkRandomCreatures() {
        or we're not on the world map, don't worry about it! */
     if (!canSpawnHere ||
         loc->map->getNumberOfCreatures() >= MAX_CREATURES_ON_MAP ||
-        xu4_random(spawnDivisor) != 0)
+        tu4_random(spawnDivisor) != 0)
         return;
 
     gameSpawnCreature(NULL);
@@ -3345,12 +3337,12 @@ void GameController::checkBridgeTrolls() {
     // TODO: CHEST: Make a user option to not make chests block bridge trolls
     if (! map->isWorldMap() ||
         map->tileTypeAt(c->location->coords, WITH_OBJECTS)->name != Tile::sym.bridge ||
-        xu4_random(8) != 0)
+        tu4_random(8) != 0)
         return;
 
     screenMessage("\nBridge Trolls!\n");
 
-    Creature *m = map->addCreature(xu4.config->creature(TROLL_ID),
+    Creature *m = map->addCreature(tu4.config->creature(TROLL_ID),
                                    c->location->coords);
     CombatController::engage(MapId(MAP_BRIDGE_CON), m);
 }
@@ -3371,7 +3363,7 @@ bool gameSpawnCreature(const Creature *m) {
         Coords new_coords;
 
         for (i = 0; i < 0x20; i++) {
-            new_coords = Coords(xu4_random(c->location->map->width), xu4_random(c->location->map->height), coords.z);
+            new_coords = Coords(tu4_random(c->location->map->width), tu4_random(c->location->map->height), coords.z);
             const Tile *tile = c->location->map->tileTypeAt(new_coords, WITH_OBJECTS);
             if (tile->isCreatureWalkable()) {
                 found = true;
@@ -3393,13 +3385,13 @@ bool gameSpawnCreature(const Creature *m) {
 
         while (!ok && (tries < MAX_TRIES)) {
             dx = 7;
-            dy = xu4_random(7);
+            dy = tu4_random(7);
 
-            if (xu4_random(2))
+            if (tu4_random(2))
                 dx = -dx;
-            if (xu4_random(2))
+            if (tu4_random(2))
                 dy = -dy;
-            if (xu4_random(2)) {
+            if (tu4_random(2)) {
                 t = dx;
                 dx = dy;
                 dy = t;
@@ -3562,7 +3554,7 @@ mixReagentsSuper() {
 
   int oldlocation = c->location->viewMode;
   c->location->viewMode = VIEW_MIXTURES;
-  screenUpdate(&xu4.game->mapArea, true, true);
+  screenUpdate(&tu4.game->mapArea, true, true);
 
   screenTextAt(16, 2, "%s", "<-Shops");
 

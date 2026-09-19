@@ -13,15 +13,15 @@
 #ifdef USE_BORON
 #include <boron/boron.h>
 #include "config.h"
-#include "xu4.h"
+#include "tu4.h"
 #endif
 
 /**
  * Seed the random number generator.
  */
-void xu4_srandom(uint32_t seed) {
+void tu4_srandom(uint32_t seed) {
 #ifdef USE_BORON
-    boron_randomSeed(xu4.config->boronThread(), seed);
+    boron_randomSeed(tu4.config->boronThread(), seed);
 #elif (defined(BSD) && (BSD >= 199103)) || (defined (MACOSX) || defined (IOS))
     srandom(seed);
 #else
@@ -39,17 +39,17 @@ char rpos = '-';
  * to compensate for older generators that have low entropy in the
  * lower bits (e.g. MacOS X).
  */
-extern "C" int xu4_random(int upperRange) {
+extern "C" int tu4_random(int upperRange) {
 #ifdef USE_BORON
     if (upperRange < 2)
         return 0;
 #ifdef REPORT_RNG
-    uint32_t r = boron_random(xu4.config->boronThread());
+    uint32_t r = boron_random(tu4.config->boronThread());
     uint32_t n = r % upperRange;
     printf( "KR rn %d %d %c\n", r, n, rpos);
     return n;
 #else
-    return boron_random(xu4.config->boronThread()) % upperRange;
+    return boron_random(tu4.config->boronThread()) % upperRange;
 #endif
 #else
 #if (defined(BSD) && (BSD >= 199103)) || (defined (MACOSX) || defined (IOS))

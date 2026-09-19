@@ -14,7 +14,7 @@
 #include "tileset.h"
 #include "tileview.h"
 #include "u4.h"
-#include "xu4.h"
+#include "tu4.h"
 
 using std::vector;
 
@@ -29,7 +29,7 @@ TileView::TileView(int x, int y, int columns, int rows)
     this->rows = rows;
     tileWidth  = TILE_CHARS_W;
     tileHeight = TILE_CHARS_H;
-    tileset = xu4.config->tileset();
+    tileset = tu4.config->tileset();
     animated = NULL;  /* not used in text mode */
 }
 
@@ -38,7 +38,7 @@ TileView::~TileView() {
 
 void TileView::reinit() {
     View::reinit();
-    tileset = xu4.config->tileset();
+    tileset = tu4.config->tileset();
 }
 
 /**
@@ -57,7 +57,7 @@ void TileView::loadTile(const MapTile &mapTile) {
  * Returns pointer to 32 bytes (4 rows x 4 cells x 2 bytes).
  */
 static const uint8_t* getTileData(const MapTile &mapTile) {
-    ImageInfo* tilesInfo = xu4.imageMgr->get(BKGD_SHAPES);
+    ImageInfo* tilesInfo = tu4.imageMgr->get(BKGD_SHAPES);
     if (!tilesInfo || !tilesInfo->image)
         return NULL;
 
@@ -65,7 +65,7 @@ static const uint8_t* getTileData(const MapTile &mapTile) {
     if (!shapes)
         return NULL;
 
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
     uint8_t uid = usaveIds->ultimaId(mapTile);
 
     return shapes + (uid * TILE_BYTES);
@@ -151,8 +151,8 @@ void TileView::drawTile(vector<MapTile> &tiles, int x, int y) {
 
     /* If only one tile or transparency disabled, just draw the front tile */
     if (tiles.size() <= 1 ||
-        !xu4.settings->enhancements ||
-        !xu4.settings->enhancementsOptions.u4TileTransparencyHack) {
+        !tu4.settings->enhancements ||
+        !tu4.settings->enhancementsOptions.u4TileTransparencyHack) {
         drawTile(tiles.front(), x, y);
         return;
     }
@@ -171,7 +171,7 @@ void TileView::drawTile(vector<MapTile> &tiles, int x, int y) {
 
 /**
  * Draw a blinking focus indicator at the four inside corners of a tile.
- * Blinks on/off based on the screen animation cycle, matching xu4.
+ * Blinks on/off based on the screen animation cycle, matching tu4.
  */
 void TileView::drawFocus(int x, int y) {
     /* Blink: only draw on alternate half-cycles */

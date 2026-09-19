@@ -17,7 +17,7 @@
 #include "sound.h"
 #include "textview.h"
 #include "u4.h"
-#include "xu4.h"
+#include "tu4.h"
 
 static void frameSleepInit(FrameSleep* fs, int frameDuration) {
     fs->frameInterval = frameDuration;
@@ -88,7 +88,7 @@ bool EventHandler::getControllerDone() {
 /** Signals that the game should immediately exit. */
 void EventHandler::quitGame() {
     ended = true;
-    xu4.stage = StageExitGame;
+    tu4.stage = StageExitGame;
 }
 
 TimedEventMgr* EventHandler::getTimer() { return &timedEvents; }
@@ -254,7 +254,7 @@ bool EventHandler::wait_msecs(unsigned int msec) {
  * \return true if game should exit.
  */
 bool EventHandler::wait_msecs(unsigned int msec, Controller* waitCon) {
-    EventHandler* eh = xu4.eventHandler;
+    EventHandler* eh = tu4.eventHandler;
     uint32_t waitTime = getTicks() + msec;
 
     while (! eh->ended) {
@@ -416,7 +416,7 @@ void EventHandler::recordKey(int key) {
 /**
  * Update for both recording and playback modes.
  *
- * \return XU4 key code or zero if no key was pressed. When recording, a zero
+ * \return TU4 key code or zero if no key was pressed. When recording, a zero
  *         is always returned.
  */
 int EventHandler::recordedKey() {
@@ -693,7 +693,7 @@ string ReadStringController::get(int maxlen, int screenX, int screenY, const cha
     if (extraChars)
         addCharBits(ctrl.accepted, extraChars);
 
-    xu4.eventHandler->pushController(&ctrl);
+    tu4.eventHandler->pushController(&ctrl);
     return ctrl.waitFor();
 }
 
@@ -703,7 +703,7 @@ string ReadStringController::get(int maxlen, TextView *view, const char* extraCh
     if (extraChars)
         addCharBits(ctrl.accepted, extraChars);
 
-    xu4.eventHandler->pushController(&ctrl);
+    tu4.eventHandler->pushController(&ctrl);
     return ctrl.waitFor();
 }
 
@@ -713,7 +713,7 @@ ReadIntController::ReadIntController(int maxlen, int screenX, int screenY) :
 
 int ReadIntController::get(int maxlen) {
     ReadIntController ctrl(maxlen, TEXT_AREA_X + c->col, TEXT_AREA_Y + c->line);
-    xu4.eventHandler->pushController(&ctrl);
+    tu4.eventHandler->pushController(&ctrl);
     ctrl.waitFor();
     return ctrl.getInt();
 }
@@ -748,7 +748,7 @@ bool ReadChoiceController::keyPressed(int key) {
 
 char ReadChoiceController::get(const string &choices) {
     ReadChoiceController ctrl(choices);
-    xu4.eventHandler->pushController(&ctrl);
+    tu4.eventHandler->pushController(&ctrl);
     return ctrl.waitFor();
 }
 
@@ -783,22 +783,22 @@ bool ReadDirController::keyPressed(int key) {
 
 void AnyKeyController::wait() {
     timerInterval = 0;
-    xu4.eventHandler->runController(this);
+    tu4.eventHandler->runController(this);
 }
 
 // Wait briefly (10 seconds) for a key press.
 void AnyKeyController::waitTimeout() {
-    timerInterval = 10000 / xu4.eventHandler->getTimerInterval();
-    xu4.eventHandler->runController(this);
+    timerInterval = 10000 / tu4.eventHandler->getTimerInterval();
+    tu4.eventHandler->runController(this);
 }
 
 bool AnyKeyController::keyPressed(int key) {
-    xu4.eventHandler->setControllerDone();
+    tu4.eventHandler->setControllerDone();
     return true;
 }
 
 void AnyKeyController::timerFired() {
-    xu4.eventHandler->setControllerDone();
+    tu4.eventHandler->setControllerDone();
 }
 
 //----------------------------------------------------------------------------
@@ -828,7 +828,7 @@ bool EventHandler::globalKeyHandler(int key) {
 #if defined(WIN32)
     case U4_ALT + U4_FKEY + 3:
 #endif
-        xu4.eventHandler->quitGame();
+        tu4.eventHandler->quitGame();
         return true;
     default: return false;
     }
@@ -847,7 +847,7 @@ bool KeyHandler::defaultHandler(int key, void *data) {
             const Tile* tile = loc->map->tileTypeAt(loc->coords, WITH_OBJECTS);
             printf("x = %d, y = %d, level = %d, tile = %d (%s)\n",
                     loc->coords.x, loc->coords.y, loc->coords.z,
-                    xu4.config->usaveIds()->ultimaId( MapTile(tile->id) ),
+                    tu4.config->usaveIds()->ultimaId( MapTile(tile->id) ),
                     tile->nameStr());
         }
         break;

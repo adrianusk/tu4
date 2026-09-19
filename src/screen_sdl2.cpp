@@ -10,7 +10,7 @@
 #include "settings.h"
 #include "screen.h"
 #include "u4file.h"
-#include "xu4.h"
+#include "tu4.h"
 
 /* CP437 8x8 font data */
 #include "../cp437_8x8.h"

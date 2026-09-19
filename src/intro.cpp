@@ -19,7 +19,7 @@
 #include "tileset.h"
 #include "u4file.h"
 #include "utils.h"
-#include "xu4.h"
+#include "tu4.h"
 
 extern uint32_t getTicks();
 
@@ -88,8 +88,8 @@ IntroBinData::~IntroBinData() {
 
 bool IntroBinData::load() {
     int i;
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
-    const Tileset* tileset = xu4.config->tileset();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
+    const Tileset* tileset = tu4.config->tileset();
 
     U4FILE *title = u4fopen("title.exe");
     if (!title)
@@ -173,8 +173,8 @@ IntroController::IntroController() :
     confMenu.setClosesMenu(CANCEL);
 
     /* set the default visibility of the two enhancement menus */
-    confMenu.getItemById(MI_CONF_GAMEPLAY)->setVisible(xu4.settings->enhancements);
-    confMenu.getItemById(MI_CONF_INTERFACE)->setVisible(xu4.settings->enhancements);
+    confMenu.getItemById(MI_CONF_GAMEPLAY)->setVisible(tu4.settings->enhancements);
+    confMenu.getItemById(MI_CONF_INTERFACE)->setVisible(tu4.settings->enhancements);
 
     videoMenu.setTitle("Video Options:", 0, 0);
     videoMenu.add(MI_VIDEO_CONF_GFX,              "\010 Game Graphics Options",  2,  2,/*'g'*/  2);
@@ -187,7 +187,7 @@ IntroController::IntroController() :
     videoMenu.setClosesMenu(CANCEL);
 
     gfxMenu.setTitle("Game Graphics Options", 0,0);
-    gfxMenu.add(MI_GFX_SCHEME,                        new StringMenuItem("Text Style         %s", 2,  2,/*'t'*/ 0, &settingsChanged.textStyle, xu4.config->schemeNames()));
+    gfxMenu.add(MI_GFX_SCHEME,                        new StringMenuItem("Text Style         %s", 2,  2,/*'t'*/ 0, &settingsChanged.textStyle, tu4.config->schemeNames()));
     gfxMenu.add(MI_GFX_TILE_TRANSPARENCY,               new BoolMenuItem("Transparency Hack  %s", 2,  4,/*'t'*/ 0, &settingsChanged.enhancementsOptions.u4TileTransparencyHack));
     gfxMenu.add(MI_VIDEO_02,                          new StringMenuItem("Gem Layout         %s", 2,  8,/*'e'*/ 1, &settingsChanged.gemLayout, screenGetGemLayoutNames()));
     gfxMenu.add(MI_VIDEO_03,                            new EnumMenuItem("Line Of Sight      %s", 2,  9,/*'l'*/ 0, &settingsChanged.lineOfSight, screenGetLineOfSightStyles()));
@@ -303,15 +303,15 @@ bool IntroController::init() {
     justInitiatedNewGame = false;
     introMusic = MUSIC_TOWNS;
 
-    uint16_t saveGroup = xu4.imageMgr->setResourceGroup(StageIntro);
+    uint16_t saveGroup = tu4.imageMgr->setResourceGroup(StageIntro);
 
     // sigData is referenced during Titles initialization
     binData = new IntroBinData();
     binData->load();
 
     Symbol sym[2];
-    xu4.config->internSymbols(sym, 2, "beast0frame00 beast1frame00");
-    beastiesImg = xu4.imageMgr->get(BKGD_ANIMATE);  // Assign resource group.
+    tu4.config->internSymbols(sym, 2, "beast0frame00 beast1frame00");
+    beastiesImg = tu4.imageMgr->get(BKGD_ANIMATE);  // Assign resource group.
     if (beastiesImg) {
         beastieSub[0] = beastiesImg->subImageIndex[sym[0]];
         beastieSub[1] = beastiesImg->subImageIndex[sym[1]];
@@ -320,7 +320,7 @@ bool IntroController::init() {
         beastieSub[1] = 0;
     }
 
-    if (xu4.errorMessage)
+    if (tu4.errorMessage)
         bSkipTitles = true;
 
     if (bSkipTitles)
@@ -364,7 +364,7 @@ bool IntroController::init() {
     if (bSkipTitles)
         updateScreen();
 
-    xu4.imageMgr->setResourceGroup(saveGroup);
+    tu4.imageMgr->setResourceGroup(saveGroup);
     return true;
 }
 
@@ -383,7 +383,7 @@ void IntroController::deleteIntro() {
     delete [] objectStateTable;
     objectStateTable = NULL;
 
-    xu4.imageMgr->freeResourceGroup(StageIntro);
+    tu4.imageMgr->freeResourceGroup(StageIntro);
     beastiesImg = NULL;
 }
 
@@ -426,7 +426,7 @@ bool IntroController::keyPressed(int key) {
             break;
         case 'c': {
             // Make a copy of our settings so we can change them
-            settingsChanged = *xu4.settings;
+            settingsChanged = *tu4.settings;
             screenDisableCursor();
             // Blank the map animation area
             for (int row = 26; row < 46; row++)
@@ -464,7 +464,7 @@ bool IntroController::keyPressed(int key) {
             about();
             break;
         case 'q':
-            xu4.eventHandler->quitGame();
+            tu4.eventHandler->quitGame();
             break;
         case '1':
         case '2':
@@ -608,8 +608,8 @@ void IntroController::drawMapAnimated() {
             // 1. Draw background terrain
             mapArea.drawTile(binData->introMap[state.x + (state.y * INTRO_MAP_WIDTH)], state.x, state.y);
             // 2-4. Draw NPC/object (with or without transparency)
-            if (xu4.settings->enhancements &&
-                xu4.settings->enhancementsOptions.u4TileTransparencyHack) {
+            if (tu4.settings->enhancements &&
+                tu4.settings->enhancementsOptions.u4TileTransparencyHack) {
                 mapArea.drawTileTransparent(state.tile, state.x, state.y);
             } else {
                 mapArea.drawTile(state.tile, state.x, state.y);
@@ -686,7 +686,7 @@ void IntroController::drawBeastie(int beast, int vertoffset, int frame) {
  */
 void IntroController::animateTree(Symbol frame) {
     const SubImage* subimage;
-    ImageInfo *info = xu4.imageMgr->imageInfo(IMG_MOONGATE, &subimage);
+    ImageInfo *info = tu4.imageMgr->imageInfo(IMG_MOONGATE, &subimage);
     if (!subimage || !info || !info->image)
         return;
 
@@ -725,7 +725,7 @@ void IntroController::animateTree(Symbol frame) {
         // Matches xu4: each frame draws full items background, then overlays
         // moongate at decreasing height anchored at the bottom.
         const SubImage* bgSub;
-        ImageInfo* bgInfo = xu4.imageMgr->imageInfo(frame, &bgSub);
+        ImageInfo* bgInfo = tu4.imageMgr->imageInfo(frame, &bgSub);
         const uint8_t* bgData = (bgInfo && bgInfo->image) ? bgInfo->image->getAspData() : NULL;
 
         // Items subimage source coordinates (1-based in XML, convert to 0-based)
@@ -789,16 +789,16 @@ void IntroController::drawCard(int pos, int card, const uint8_t* origin) {
      * writes at (dx,dy) (offset by the view origin). To draw the card's pixels
      * into the target slot we set dx,dy so the destination lands on the slot,
      * cancelling the card's own crop origin: dx = slotX - (cardSub->x - 1). */
-    Symbol cardName = xu4.config->intern(cardNames[card]);
+    Symbol cardName = tu4.config->intern(cardNames[card]);
     const SubImage* cardSub;
-    if (!xu4.imageMgr->imageInfo(cardName, &cardSub) || !cardSub) {
+    if (!tu4.imageMgr->imageInfo(cardName, &cardSub) || !cardSub) {
         backgroundArea.draw(cardName, 0, 0);
         return;
     }
 
     /* Slot placement from the abacus art (leftx/rightx/top). */
     const SubImage* abacusSub;
-    ImageInfo* abacus = xu4.imageMgr->imageInfo(BKGD_ABACUS, &abacusSub);
+    ImageInfo* abacus = tu4.imageMgr->imageInfo(BKGD_ABACUS, &abacusSub);
     int slotX = -1, slotY = -1;
     if (abacus) {
         slotX = pos ? abacus->cardRightX : abacus->cardLeftX;
@@ -832,13 +832,13 @@ void IntroController::drawAbacusBeads(int row, int selectedVirtue, int rejectedV
 
     // Get white bead subimage info (contains placement data)
     const SubImage* whiteSub;
-    ImageInfo* whiteInfo = xu4.imageMgr->imageInfo(IMG_WHITEBEAD, &whiteSub);
+    ImageInfo* whiteInfo = tu4.imageMgr->imageInfo(IMG_WHITEBEAD, &whiteSub);
     if (!whiteSub || !whiteInfo || !whiteInfo->image)
         return;
 
     // Get black bead subimage info
     const SubImage* blackSub;
-    ImageInfo* blackInfo = xu4.imageMgr->imageInfo(IMG_BLACKBEAD, &blackSub);
+    ImageInfo* blackInfo = tu4.imageMgr->imageInfo(IMG_BLACKBEAD, &blackSub);
     if (!blackSub || !blackInfo || !blackInfo->image)
         return;
 
@@ -896,7 +896,7 @@ void IntroController::updateScreen() {
         drawBeasties();
         // display the profile name if a local profile is being used
         {
-        const string& pname = xu4.settings->profile;
+        const string& pname = tu4.settings->profile;
         if (! pname.empty())
             screenTextAt(SCREEN_COLS-pname.length(), 48, "%s", pname.c_str());
         }
@@ -907,11 +907,11 @@ void IntroController::updateScreen() {
         backgroundArea.draw(BKGD_INTRO);
 
         // if there is an error message to display, show it
-        if (xu4.errorMessage)
+        if (tu4.errorMessage)
         {
-            int len = strlen(xu4.errorMessage);
-            menuArea.textAt(38 - len / 2, 10, xu4.errorMessage);
-            xu4.errorMessage = NULL;
+            int len = strlen(tu4.errorMessage);
+            menuArea.textAt(38 - len / 2, 10, tu4.errorMessage);
+            tu4.errorMessage = NULL;
 
             drawBeasties();
             
@@ -1056,30 +1056,30 @@ void IntroController::finishInitiateGame(const string &nameBuffer, SexType sex)
     menuArea.disableCursor();
 
     {
-    uint16_t saveGroup = xu4.imageMgr->setResourceGroup(StageIntro);
+    uint16_t saveGroup = tu4.imageMgr->setResourceGroup(StageIntro);
 
     // show the lead up story
     showStory();
-    if (xu4.stage != StageIntro)
+    if (tu4.stage != StageIntro)
         return;
 
     // ask questions that determine character class
     startQuestions();
-    if (xu4.stage != StageIntro)
+    if (tu4.stage != StageIntro)
         return;
 
-    xu4.imageMgr->setResourceGroup(saveGroup);
+    tu4.imageMgr->setResourceGroup(saveGroup);
     }
 
     // write out save game an segue into game
 
-    delete xu4.saveGame;
-    xu4.saveGame = NULL;    // Make GameController::init() reload the game.
+    delete tu4.saveGame;
+    tu4.saveGame = NULL;    // Make GameController::init() reload the game.
 
-    FILE *saveGameFile = fopen((xu4.settings->getUserPath() + PARTY_SAV).c_str(), "wb");
+    FILE *saveGameFile = fopen((tu4.settings->getUserPath() + PARTY_SAV).c_str(), "wb");
     if (!saveGameFile) {
         questionArea.disableCursor();
-        xu4.errorMessage = "Unable to create save game!";
+        tu4.errorMessage = "Unable to create save game!";
         updateScreen();
         return;
     }
@@ -1103,7 +1103,7 @@ void IntroController::finishInitiateGame(const string &nameBuffer, SexType sex)
 
     fclose(saveGameFile);
 
-    saveGameFile = fopen((xu4.settings->getUserPath() + MONSTERS_SAV).c_str(), "wb");
+    saveGameFile = fopen((tu4.settings->getUserPath() + MONSTERS_SAV).c_str(), "wb");
     if (saveGameFile) {
         saveGameMonstersWrite(NULL, saveGameFile);
         fclose(saveGameFile);
@@ -1123,9 +1123,9 @@ void IntroController::finishInitiateGame(const string &nameBuffer, SexType sex)
     // done: exit intro and let game begin
     questionArea.disableCursor();
 
-    if (xu4.stage != StageExitGame)
-        xu4.stage = StagePlay;
-    xu4.eventHandler->setControllerDone();
+    if (tu4.stage != StageExitGame)
+        tu4.stage = StagePlay;
+    tu4.eventHandler->setControllerDone();
 }
 
 void IntroController::showStory() {
@@ -1169,7 +1169,7 @@ void IntroController::showStory() {
         // enable the cursor here to avoid drawing in undesirable locations
         questionArea.enableCursor();
         anyKey.wait();
-        if (xu4.stage != StageIntro)
+        if (tu4.stage != StageIntro)
             break;
     }
 }
@@ -1193,7 +1193,7 @@ void IntroController::startQuestions() {
     const vector<string>& gypsyText = binData->introGypsy;
     int i1, i2, n;
 
-    while (xu4.stage == StageIntro) {
+    while (tu4.stage == StageIntro) {
         // draw the abacus background, if necessary
         if (questionRound == 0) {
             backgroundArea.draw(BKGD_ABACUS, 0, 0, 41);
@@ -1237,7 +1237,7 @@ void IntroController::startQuestions() {
         U4IOS::switchU4IntroControllerToABButtons();
 #endif
         // wait for an answer
-        xu4.eventHandler->pushController(&questionController);
+        tu4.eventHandler->pushController(&questionController);
         int choice = questionController.waitFor();
 
         // update the question tree
@@ -1273,9 +1273,9 @@ string IntroController::getQuestion(int v1, int v2) {
  */
 void IntroController::journeyOnward() {
     // Return to a running game or attempt to load a saved one.
-    if (xu4.saveGame || saveGameLoad()) {
-        xu4.stage = StagePlay;
-        xu4.eventHandler->setControllerDone();
+    if (tu4.saveGame || saveGameLoad()) {
+        tu4.stage = StagePlay;
+        tu4.eventHandler->setControllerDone();
     } else {
         updateScreen();     // Shows errorMessage set by saveGameLoad().
     }
@@ -1298,7 +1298,7 @@ void IntroController::about() {
     static const char *main_lines[] = {
         "",
         "A 16 color CGA text mode demake of Ultima IV",
-        "based on xu4 (xu4.sourceforge.net)",
+        "based on xu4 (tu4.sourceforge.net)",
         "",
         "tu4 is free software; you can redistribute",
         "it and/or modify it under the terms of the",
@@ -1397,7 +1397,7 @@ void IntroController::runMenu(Menu *menu, TextView *view, bool withBeasties) {
         drawBeasties();
 
     MenuController menuController(menu, view);
-    xu4.eventHandler->pushController(&menuController);
+    tu4.eventHandler->pushController(&menuController);
     menuController.waitFor();
 
     // enable the cursor here, after the menu has been established
@@ -1425,9 +1425,9 @@ void IntroController::timerFired() {
     if (beastiesVisible)
         drawBeasties();
 
-    if (xu4_random(2) && ++beastie1Cycle >= IntroBinData::BEASTIE1_FRAMES)
+    if (tu4_random(2) && ++beastie1Cycle >= IntroBinData::BEASTIE1_FRAMES)
         beastie1Cycle = 0;
-    if (xu4_random(2) && ++beastie2Cycle >= IntroBinData::BEASTIE2_FRAMES)
+    if (tu4_random(2) && ++beastie2Cycle >= IntroBinData::BEASTIE2_FRAMES)
         beastie2Cycle = 0;
 
     
@@ -1475,8 +1475,8 @@ void IntroController::updateConfMenu(MenuEvent &event) {
         confMenu.getItemById(MI_CONF_INTERFACE)->setVisible(settingsChanged.enhancements);
 
         // save settings
-        xu4.settings->setData(settingsChanged);
-        xu4.settings->write();
+        tu4.settings->setData(settingsChanged);
+        tu4.settings->write();
 
         switch(event.item->getId()) {
         case MI_CONF_VIDEO:
@@ -1502,7 +1502,7 @@ void IntroController::updateConfMenu(MenuEvent &event) {
             break;
         case CANCEL:
             // discard settings
-            settingsChanged = *xu4.settings;
+            settingsChanged = *tu4.settings;
             break;
         default: break;
         }
@@ -1519,12 +1519,12 @@ void IntroController::updateVideoMenu(MenuEvent &event) {
         switch(event.item->getId()) {
         case USE_SETTINGS:
             /* save settings (if necessary) */
-            if (*xu4.settings != settingsChanged) {
-                bool styleChanged = (xu4.settings->textStyle != settingsChanged.textStyle);
-                bool scaleChanged = (xu4.settings->scale != settingsChanged.scale) ||
-                                    (xu4.settings->fullscreen != settingsChanged.fullscreen);
-                xu4.settings->setData(settingsChanged);
-                xu4.settings->write();
+            if (*tu4.settings != settingsChanged) {
+                bool styleChanged = (tu4.settings->textStyle != settingsChanged.textStyle);
+                bool scaleChanged = (tu4.settings->scale != settingsChanged.scale) ||
+                                    (tu4.settings->fullscreen != settingsChanged.fullscreen);
+                tu4.settings->setData(settingsChanged);
+                tu4.settings->write();
 
                 /* A text-style change requires reloading ALL graphics assets
                  * and repainting the intro. Defer that heavy work until the
@@ -1546,7 +1546,7 @@ void IntroController::updateVideoMenu(MenuEvent &event) {
             break;
         case CANCEL:
             // discard settings
-            settingsChanged = *xu4.settings;
+            settingsChanged = *tu4.settings;
             break;
         default: break;
         }
@@ -1588,15 +1588,15 @@ void IntroController::updateSoundMenu(MenuEvent &event) {
                 break;
             case USE_SETTINGS:
                 // save settings
-                xu4.settings->setData(settingsChanged);
-                xu4.settings->write();
+                tu4.settings->setData(settingsChanged);
+                tu4.settings->write();
                 musicPlay(introMusic);
                 break;
             case CANCEL:
-                musicSetVolume(xu4.settings->musicVol);
-                soundSetVolume(xu4.settings->soundVol);
+                musicSetVolume(tu4.settings->musicVol);
+                soundSetVolume(tu4.settings->soundVol);
                 // discard settings
-                settingsChanged = *xu4.settings;
+                settingsChanged = *tu4.settings;
                 break;
             default: break;
         }
@@ -1613,18 +1613,18 @@ void IntroController::updateInputMenu(MenuEvent &event) {
         switch(event.item->getId()) {
         case USE_SETTINGS:
             // save settings
-            xu4.settings->setData(settingsChanged);
-            xu4.settings->write();
+            tu4.settings->setData(settingsChanged);
+            tu4.settings->write();
 
             // re-initialize keyboard
             EventHandler::setKeyRepeat(settingsChanged.keydelay, settingsChanged.keyinterval);
 #ifndef IOS
-            screenShowMouseCursor(xu4.settings->mouseOptions.enabled);
+            screenShowMouseCursor(tu4.settings->mouseOptions.enabled);
 #endif
             break;
         case CANCEL:
             // discard settings
-            settingsChanged = *xu4.settings;
+            settingsChanged = *tu4.settings;
             break;
         default: break;
         }
@@ -1644,16 +1644,16 @@ void IntroController::updateSpeedMenu(MenuEvent &event) {
         switch(event.item->getId()) {
         case USE_SETTINGS:
             // save settings
-            xu4.settings->setData(settingsChanged);
-            xu4.settings->write();
+            tu4.settings->setData(settingsChanged);
+            tu4.settings->write();
 
             // re-initialize events
-            xu4.eventHandler->setTimerInterval(1000 /
-                                        xu4.settings->gameCyclesPerSecond);
+            tu4.eventHandler->setTimerInterval(1000 /
+                                        tu4.settings->gameCyclesPerSecond);
             break;
         case CANCEL:
             // discard settings
-            settingsChanged = *xu4.settings;
+            settingsChanged = *tu4.settings;
             break;
         default: break;
         }
@@ -1670,12 +1670,12 @@ void IntroController::updateGameplayMenu(MenuEvent &event) {
         switch(event.item->getId()) {
         case USE_SETTINGS:
             // save settings
-            xu4.settings->setData(settingsChanged);
-            xu4.settings->write();
+            tu4.settings->setData(settingsChanged);
+            tu4.settings->write();
             break;
         case CANCEL:
             // discard settings
-            settingsChanged = *xu4.settings;
+            settingsChanged = *tu4.settings;
             break;
         default: break;
         }
@@ -1692,12 +1692,12 @@ void IntroController::updateInterfaceMenu(MenuEvent &event) {
         switch(event.item->getId()) {
             case USE_SETTINGS:
                 // save settings
-                xu4.settings->setData(settingsChanged);
-                xu4.settings->write();
+                tu4.settings->setData(settingsChanged);
+                tu4.settings->write();
                 break;
             case CANCEL:
                 // discard settings
-                settingsChanged = *xu4.settings;
+                settingsChanged = *tu4.settings;
                 break;
             default: break;
         }
@@ -1720,7 +1720,7 @@ void IntroController::initQuestionTree() {
         questionTree[i] = i;
 
     for (i = 0; i < 8; i++) {
-        r = xu4_random(8);
+        r = tu4_random(8);
         tmp = questionTree[r];
         questionTree[r] = questionTree[i];
         questionTree[i] = tmp;
@@ -1936,7 +1936,7 @@ static void loadTitleData() {
     if (titleDataLoaded) return;
 
     // Load TITLE.ASP image data
-    ImageInfo* info = xu4.imageMgr->get(BKGD_INTRO);
+    ImageInfo* info = tu4.imageMgr->get(BKGD_INTRO);
     if (info && info->image && info->image->getAspData()) {
         memcpy(titleAspData, info->image->getAspData(), 8000);
     } else {
@@ -1951,7 +1951,7 @@ static void loadTitleData() {
 
     if (info) {
         for (int i = 0; i < 7; i++) {
-            Symbol sym = xu4.config->intern(subNames[i]);
+            Symbol sym = tu4.config->intern(subNames[i]);
             std::map<Symbol, int>::iterator it = info->subImageIndex.find(sym);
             if (it != info->subImageIndex.end()) {
                 const SubImage* sub = info->subImages + it->second;
@@ -1977,7 +1977,7 @@ static void loadTitleData() {
     // Load sigdata.txt from the ACTIVE theme's directory, searching the same
     // resource paths as the theme's .ASP assets (u4find_graphics ->
     // graphics/<theme>/ under ., ~/.local/share/tu4, /usr/share/tu4, ...).
-    std::string sigPath = u4find_graphics(xu4.settings->textStyle + "/sigdata.txt");
+    std::string sigPath = u4find_graphics(tu4.settings->textStyle + "/sigdata.txt");
     FILE* f = sigPath.empty() ? NULL : fopen(sigPath.c_str(), "r");
     numSigCoords = 0;
     if (f) {
@@ -2313,7 +2313,7 @@ bool IntroController::updateTitle()
             // NOT a coarse "skip whole tile" check, since a tile can be
             // partially inside the window while the reveal is expanding).
             {
-                ImageInfo* shapesInfo = xu4.imageMgr->get(BKGD_SHAPES);
+                ImageInfo* shapesInfo = tu4.imageMgr->get(BKGD_SHAPES);
                 const uint8_t* shapes = (shapesInfo && shapesInfo->image)
                                             ? shapesInfo->image->getAspData() : NULL;
                 if (shapes) {
@@ -2325,7 +2325,7 @@ bool IntroController::updateTitle()
                                 continue;
 
                             const MapTile &mt = binData->introMap[mx + my * INTRO_MAP_WIDTH];
-                            uint8_t uid = xu4.config->usaveIds()->ultimaId(mt);
+                            uint8_t uid = tu4.config->usaveIds()->ultimaId(mt);
                             const uint8_t* tileData = shapes + (uid * 32);
 
                             for (int r = 0; r < 4; r++) {

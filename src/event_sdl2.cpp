@@ -11,18 +11,18 @@
 #include "context.h"
 #include "screen.h"
 #include "settings.h"
-#include "xu4.h"
+#include "tu4.h"
 
 extern bool verbose;
 
 extern void screenDrawMouseCursor(int charX, int charY, MouseCursor cursor);
 
 static void handleMouseMotionEvent(const SDL_Event &event) {
-    if (!xu4.settings->mouseOptions.enabled)
+    if (!tu4.settings->mouseOptions.enabled)
         return;
 
     MouseArea *area;
-    area = xu4.eventHandler->mouseAreaForPoint(event.motion.x, event.motion.y);
+    area = tu4.eventHandler->mouseAreaForPoint(event.motion.x, event.motion.y);
     MouseCursor cursor = area ? area->cursor : MC_DEFAULT;
     screenSetMouseCursor(cursor);
 
@@ -31,7 +31,7 @@ static void handleMouseMotionEvent(const SDL_Event &event) {
     int charY = event.motion.y / 8;
 
     /* Map viewport is at chars (2,2) to (45,45) — only active in game mode */
-    bool inViewport = (xu4.stage == StagePlay) &&
+    bool inViewport = (tu4.stage == StagePlay) &&
                       (charX >= 2 && charX <= 45 && charY >= 2 && charY <= 45);
 
     if (inViewport) {
@@ -48,21 +48,21 @@ static void handleMouseMotionEvent(const SDL_Event &event) {
 static void handleMouseButtonDownEvent(const SDL_Event &event,
                                        Controller *controller,
                                        updateScreenCallback updateScreen) {
-    if (!xu4.settings->mouseOptions.enabled)
+    if (!tu4.settings->mouseOptions.enabled)
         return;
 
     MouseArea* area;
-    area = xu4.eventHandler->mouseAreaForPoint(event.button.x, event.button.y);
+    area = tu4.eventHandler->mouseAreaForPoint(event.button.x, event.button.y);
     if (area) {
-        int xu4Button;
+        int tu4Button;
         switch (event.button.button) {
-            case SDL_BUTTON_LEFT:   xu4Button = 0; break;
-            case SDL_BUTTON_MIDDLE: xu4Button = 1; break;
-            case SDL_BUTTON_RIGHT:  xu4Button = 2; break;
-            default:                xu4Button = 0; break;
+            case SDL_BUTTON_LEFT:   tu4Button = 0; break;
+            case SDL_BUTTON_MIDDLE: tu4Button = 1; break;
+            case SDL_BUTTON_RIGHT:  tu4Button = 2; break;
+            default:                tu4Button = 0; break;
         }
 
-        int keyCmd = area->command[xu4Button];
+        int keyCmd = area->command[tu4Button];
         if (keyCmd) {
             controller->keyPressed(keyCmd);
             if (updateScreen)
@@ -128,7 +128,7 @@ static void handleKeyDownEvent(const SDL_Event &event,
         key = key - 'A' + 1;
 
 #ifdef DEBUG
-    xu4.eventHandler->recordKey(key);
+    tu4.eventHandler->recordKey(key);
 #endif
 
     if (verbose)

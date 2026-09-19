@@ -11,7 +11,7 @@
 #include "image.h"
 #include "settings.h"
 #include "screen.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #if defined(MACOSX)
 #include "macosx/cursors.h"
@@ -28,7 +28,7 @@ struct ScreenSDL {
     int currentCursor;
 };
 
-#define SD  ((ScreenSDL*) xu4.screenSys)
+#define SD  ((ScreenSDL*) tu4.screenSys)
 
 SDL_Cursor *screenInitCursor(const char * const xpm[]);
 
@@ -65,7 +65,7 @@ void screenInit_sys(const Settings* settings, int* dim, int reset) {
 #ifdef ICON_FILE
         SDL_WM_SetIcon(SDL_LoadBMP(ICON_FILE), NULL);
 #endif
-        xu4.screenSys = sd = new ScreenSDL;
+        tu4.screenSys = sd = new ScreenSDL;
         memset(sd, 0, sizeof(ScreenSDL));
     }
 
@@ -136,7 +136,7 @@ void screenDelete_sys() {
     u4_SDL_QuitSubSystem(SDL_INIT_VIDEO);
 
     delete sd;
-    xu4.screenSys = NULL;
+    tu4.screenSys = NULL;
 }
 
 /**
@@ -254,7 +254,7 @@ static void updateDisplay( int x, int y, int w, int h ) {
         const uint32_t* send;
         const uint32_t* srow;
         int dpitch = ss->pitch / sizeof(uint32_t);
-        int screenImageW = xu4.screenImage->width();
+        int screenImageW = tu4.screenImage->width();
         int cr;
         int offset = screenState()->vertOffset;
 
@@ -271,7 +271,7 @@ static void updateDisplay( int x, int y, int w, int h ) {
         }
 
         SDL_LockSurface(ss);
-        srow = xu4.screenImage->pixelData() + y*screenImageW + x;
+        srow = tu4.screenImage->pixelData() + y*screenImageW + x;
         drow = ((uint32_t*) ss->pixels) + y*dpitch + x;
 
         if (offset > 0) {

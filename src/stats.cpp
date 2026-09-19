@@ -12,7 +12,7 @@
 #include "spell.h"
 #include "weapon.h"
 #include "u4.h"
-#include "xu4.h"
+#include "tu4.h"
 
 /**
  * StatsArea class implementation
@@ -270,7 +270,7 @@ void StatsArea::showWeapons() {
 
     int line = 0;
     int col = 0;
-    mainArea.textAt(0, line, "A-%s", xu4.config->weapon(WEAP_HANDS)->getName());
+    mainArea.textAt(0, line, "A-%s", tu4.config->weapon(WEAP_HANDS)->getName());
     line += 2;
     for (int w = WEAP_HANDS + 1; w < WEAP_MAX; w++) {
         int n = c->saveGame->weapons[w];
@@ -279,7 +279,7 @@ void StatsArea::showWeapons() {
         if (n >= 1) {
             const char *format = (n >= 10) ? "%c%d-%s" : "%c-%d-%s";
 
-            mainArea.textAt(col, line, format, w - WEAP_HANDS + 'A', n, xu4.config->weapon((WeaponType) w)->getAbbrev());
+            mainArea.textAt(col, line, format, w - WEAP_HANDS + 'A', n, tu4.config->weapon((WeaponType) w)->getAbbrev());
             line += 2;
             if (line >= (STATS_AREA_HEIGHT)) {
                 line = 0;
@@ -304,7 +304,7 @@ void StatsArea::showArmor() {
 
             mainArea.textAt(0, line, format, a - ARMR_NONE + 'A',
                     c->saveGame->armor[a],
-                    xu4.config->armor((ArmorType) a)->getName());
+                    tu4.config->armor((ArmorType) a)->getName());
             line += 2;
         }
     }
@@ -527,12 +527,12 @@ bool ReagentsMenuController::keyPressed(int key) {
         }
         break;
     case U4_ENTER:
-        xu4.eventHandler->setControllerDone();
+        tu4.eventHandler->setControllerDone();
         break;
 
     case U4_ESC:
         ingredients->revert();
-        xu4.eventHandler->setControllerDone();
+        tu4.eventHandler->setControllerDone();
         break;
 
     default:

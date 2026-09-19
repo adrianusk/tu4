@@ -5,7 +5,7 @@
 
 #include "view.h"
 #include "screen.h"
-#include "xu4.h"
+#include "tu4.h"
 
 View::View(int x, int y, int width, int height) :
     x(x), y(y), width(width), height(height),

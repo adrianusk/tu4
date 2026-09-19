@@ -1,5 +1,5 @@
 /*
- * xu4.h
+ * tu4.h
  */
 
 #include "notify.h"
@@ -23,13 +23,13 @@ struct SaveGame;
 class IntroController;
 class GameController;
 
-enum XU4GameStage {
+enum TU4GameStage {
     StageExitGame,
     StageIntro,
     StagePlay
 };
 
-struct XU4GameServices {
+struct TU4GameServices {
     NotifyBus notifyBus;
     Settings* settings;
     Config* config;
@@ -46,8 +46,8 @@ struct XU4GameServices {
     int stage;
 };
 
-extern XU4GameServices xu4;
+extern TU4GameServices tu4;
 
-#define gs_listen(msk,func,user)    notify_listen(&xu4.notifyBus,msk,func,user)
-#define gs_unplug(id)               notify_unplug(&xu4.notifyBus,id)
-#define gs_emitMessage(sid,data)    notify_emit(&xu4.notifyBus,sid,data);
+#define gs_listen(msk,func,user)    notify_listen(&tu4.notifyBus,msk,func,user)
+#define gs_unplug(id)               notify_unplug(&tu4.notifyBus,id)
+#define gs_emitMessage(sid,data)    notify_emit(&tu4.notifyBus,sid,data);

@@ -11,41 +11,41 @@
 #include "context.h"
 #include "screen.h"
 #include "settings.h"
-#include "xu4.h"
+#include "tu4.h"
 
 extern bool verbose;
 
 static void handleMouseMotionEvent(const SDL_Event &event) {
-    if (!xu4.settings->mouseOptions.enabled)
+    if (!tu4.settings->mouseOptions.enabled)
         return;
 
     int x = (int)event.motion.x;
     int y = (int)event.motion.y;
     MouseArea *area;
-    area = xu4.eventHandler->mouseAreaForPoint(x, y);
+    area = tu4.eventHandler->mouseAreaForPoint(x, y);
     screenSetMouseCursor(area ? area->cursor : MC_DEFAULT);
 }
 
 static void handleMouseButtonDownEvent(const SDL_Event &event,
                                        Controller *controller,
                                        updateScreenCallback updateScreen) {
-    if (!xu4.settings->mouseOptions.enabled)
+    if (!tu4.settings->mouseOptions.enabled)
         return;
 
     int x = (int)event.button.x;
     int y = (int)event.button.y;
     MouseArea* area;
-    area = xu4.eventHandler->mouseAreaForPoint(x, y);
+    area = tu4.eventHandler->mouseAreaForPoint(x, y);
     if (area) {
-        int xu4Button;
+        int tu4Button;
         switch (event.button.button) {
-            case SDL_BUTTON_LEFT:   xu4Button = 0; break;
-            case SDL_BUTTON_MIDDLE: xu4Button = 1; break;
-            case SDL_BUTTON_RIGHT:  xu4Button = 2; break;
-            default:                xu4Button = 0; break;
+            case SDL_BUTTON_LEFT:   tu4Button = 0; break;
+            case SDL_BUTTON_MIDDLE: tu4Button = 1; break;
+            case SDL_BUTTON_RIGHT:  tu4Button = 2; break;
+            default:                tu4Button = 0; break;
         }
 
-        int keyCmd = area->command[xu4Button];
+        int keyCmd = area->command[tu4Button];
         if (keyCmd) {
             controller->keyPressed(keyCmd);
             if (updateScreen)
@@ -112,7 +112,7 @@ static void handleKeyDownEvent(const SDL_Event &event,
         key = key - 'A' + 1;
 
 #ifdef DEBUG
-    xu4.eventHandler->recordKey(key);
+    tu4.eventHandler->recordKey(key);
 #endif
 
     if (verbose)

@@ -14,7 +14,7 @@
 #include "u4.h"
 #include "utils.h"
 #include "tile.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #define TILE_CHARS_W  4
 #define TILE_CHARS_H  4
@@ -25,13 +25,13 @@
  * Converts to U4 save ID before indexing.
  */
 static const uint8_t* animGetTileData(const MapTile &mapTile) {
-    ImageInfo* tilesInfo = xu4.imageMgr->get(BKGD_SHAPES);
+    ImageInfo* tilesInfo = tu4.imageMgr->get(BKGD_SHAPES);
     if (!tilesInfo || !tilesInfo->image)
         return NULL;
     const uint8_t* shapes = tilesInfo->image->getAspData();
     if (!shapes)
         return NULL;
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
     uint8_t uid = usaveIds->ultimaId(mapTile);
     return shapes + (uid * TILE_BYTES);
 }
@@ -98,7 +98,7 @@ void TileAnimTransform::draw(int screenX, int screenY, const Tile* tile,
     case ATYPE_FRAME:
     {
         int frame;
-        if (xu4.stage == StagePlay) {
+        if (tu4.stage == StagePlay) {
             frame = mapTile.frame;
         } else {
             /* Intro map: shared frame counter for all tiles of this type */
@@ -202,7 +202,7 @@ static bool drawsTile(const TileAnimTransform* tf)
 
 void TileAnim::draw(int screenX, int screenY, const Tile *tile, const MapTile &mapTile, Direction dir)
 {
-    if (mapTile.freezeAnimation || (random && xu4_random(100) > random)) {
+    if (mapTile.freezeAnimation || (random && tu4_random(100) > random)) {
         /* Not animating this tick: for char_alt/color_alt, still draw current state */
         bool altDrawn = false;
         if (!mapTile.freezeAnimation) {
@@ -243,7 +243,7 @@ void TileAnim::draw(int screenX, int screenY, const Tile *tile, const MapTile &m
                 continue;
         }
 
-        if (! trans->random || xu4_random(100) < trans->random) {
+        if (! trans->random || tu4_random(100) < trans->random) {
             if (! drawsTile(trans) && ! drawn) {
                 const uint8_t* tileData = animGetTileData(mapTile);
                 if (tileData)

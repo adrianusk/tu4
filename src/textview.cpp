@@ -13,7 +13,7 @@
 #include "settings.h"
 #include "textview.h"
 #include "screen.h"
-#include "xu4.h"
+#include "tu4.h"
 
 Image *TextView::charset = NULL;  /* unused in text mode, kept for linkage */
 
@@ -31,11 +31,11 @@ TextView::TextView(int x, int y, int columns, int rows)
     cursorSavedChar = ' ';
     cursorSavedAttr = 0x00;
 
-    xu4.eventHandler->getTimer()->add(&cursorTimer, 4, this);
+    tu4.eventHandler->getTimer()->add(&cursorTimer, 4, this);
 }
 
 TextView::~TextView() {
-    xu4.eventHandler->getTimer()->remove(&cursorTimer, this);
+    tu4.eventHandler->getTimer()->remove(&cursorTimer, this);
 }
 
 void TextView::reinit() {
@@ -53,7 +53,7 @@ void TextView::drawChar(int chr, int x, int y) {
 
     if (chr < 32) {
         /* Special symbol: look up in CHARSET.ASP for char+attr */
-        ImageInfo* charsetInfo = xu4.imageMgr->get(BKGD_CHARSET);
+        ImageInfo* charsetInfo = tu4.imageMgr->get(BKGD_CHARSET);
         if (charsetInfo && charsetInfo->image && charsetInfo->image->getAspData()) {
             const uint8_t* data = charsetInfo->image->getAspData();
             ch = data[chr * 2];
@@ -88,8 +88,8 @@ void TextView::drawCharMasked(int chr, int x, int y, unsigned char mask) {
 
 /* highlight the selected row using a background color */
 void TextView::textSelectedAt(int x, int y, const char *text) {
-    if (xu4.settings->enhancements &&
-        xu4.settings->enhancementsOptions.textColorization) {
+    if (tu4.settings->enhancements &&
+        tu4.settings->enhancementsOptions.textColorization) {
         uint8_t saveBG = colorBG;
         colorBG = 0x01;  /* blue background for selection */
         for (int i = 0; i < columns - 1; i++)
@@ -105,8 +105,8 @@ void TextView::textSelectedAt(int x, int y, const char *text) {
 string TextView::colorizeStatus(char statustype) {
     string output;
 
-    if (!xu4.settings->enhancements ||
-        !xu4.settings->enhancementsOptions.textColorization) {
+    if (!tu4.settings->enhancements ||
+        !tu4.settings->enhancementsOptions.textColorization) {
         output = statustype;
         return output;
     }
@@ -123,8 +123,8 @@ string TextView::colorizeStatus(char statustype) {
 }
 
 string TextView::colorizeString(string input, TextColor color, unsigned int colorstart, unsigned int colorlength) {
-    if (!xu4.settings->enhancements ||
-        !xu4.settings->enhancementsOptions.textColorization)
+    if (!tu4.settings->enhancements ||
+        !tu4.settings->enhancementsOptions.textColorization)
         return input;
 
     string output = "";

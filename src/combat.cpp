@@ -19,7 +19,7 @@
 #include "tileset.h"
 #include "utils.h"
 #include "weapon.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #ifdef IOS
 #include "ios_helpers.h"
@@ -41,7 +41,7 @@ CombatMap *getCombatMap(Map *punknown) {
 }
 
 void CombatController::engage(MapId mid, const Creature* creatures) {
-    CombatMap* map = getCombatMap(xu4.config->map(mid));
+    CombatMap* map = getCombatMap(tu4.config->map(mid));
     CombatController* cc = new CombatController(map);
     cc->initCreature(creatures);
     cc->beginCombat();
@@ -71,7 +71,7 @@ CombatController::CombatController(CombatMap* cmap) : TurnController(0) {
 
     map = cmap;
     if (cmap)
-        xu4.game->setMap(cmap, true, NULL, this);
+        tu4.game->setMap(cmap, true, NULL, this);
 }
 
 CombatController::~CombatController() {
@@ -221,7 +221,7 @@ void CombatController::beginCombat() {
     if (!camping && !partyIsReadyToFight)
         c->location->turnCompleter->finishTurn();
 
-    xu4.eventHandler->pushController(this);
+    tu4.eventHandler->pushController(this);
 }
 
 /*
@@ -230,7 +230,7 @@ void CombatController::beginCombat() {
 void CombatController::endCombat(bool adjustKarma) {
     // Other code paths use autoDelete, but we manually delete below.
     setDeleteOnPop(false);
-    xu4.eventHandler->popController();
+    tu4.eventHandler->popController();
 
     /* The party is dead -- start the death sequence */
     if (c->party->isDead()) {
@@ -244,7 +244,7 @@ void CombatController::endCombat(bool adjustKarma) {
         /* need to get this here because when we exit to the parent map, all the monsters are cleared */
         bool won = isWon();
 
-        xu4.game->exitToParentMap();
+        tu4.game->exitToParentMap();
         musicPlayLocale();
 
         if (winOrLose) {
@@ -303,7 +303,7 @@ void CombatController::endCombat(bool adjustKarma) {
             c->location->map->removeObject(creature);
 
         /* Make sure finishturn only happens if a new combat has not begun */
-        if (! xu4.eventHandler->getController()->isCombatController())
+        if (! tu4.eventHandler->getController()->isCombatController())
             c->location->turnCompleter->finishTurn();
     }
 
@@ -324,22 +324,22 @@ void CombatController::fillCreatureTable(const Creature *creature) {
         int numCreatures = initialNumberOfCreatures(creature);
 
         if (baseCreature->getId() == PIRATE_ID)
-            baseCreature = xu4.config->creature(ROGUE_ID);
+            baseCreature = tu4.config->creature(ROGUE_ID);
 
         for (i = 0; i < numCreatures; i++) {
             current = baseCreature;
 
             /* find a free spot in the creature table */
-            do {j = xu4_random(AREA_CREATURES) ;} while (creatureTable[j] != NULL);
+            do {j = tu4_random(AREA_CREATURES) ;} while (creatureTable[j] != NULL);
 
             /* see if creature is a leader or leader's leader */
-            if (xu4.config->creature(baseCreature->getLeader()) != baseCreature && /* leader is a different creature */
+            if (tu4.config->creature(baseCreature->getLeader()) != baseCreature && /* leader is a different creature */
                 i != (numCreatures - 1)) { /* must have at least 1 creature of type encountered */
 
-                if (xu4_random(32) == 0)       /* leader's leader */
-                    current = xu4.config->creature(xu4.config->creature(baseCreature->getLeader())->getLeader());
-                else if (xu4_random(8) == 0)   /* leader */
-                    current = xu4.config->creature(baseCreature->getLeader());
+                if (tu4_random(32) == 0)       /* leader's leader */
+                    current = tu4.config->creature(tu4.config->creature(baseCreature->getLeader())->getLeader());
+                else if (tu4_random(8) == 0)   /* leader */
+                    current = tu4.config->creature(baseCreature->getLeader());
             }
 
             /* place this creature in the creature table */
@@ -358,17 +358,17 @@ int  CombatController::initialNumberOfCreatures(const Creature *creature) const 
     /* if in an unusual combat situation, generally we stick to normal encounter sizes,
        (such as encounters from sleeping in an inn, etc.) */
     if (forceStandardEncounterSize || map->isWorldMap() || (c->location->prev && c->location->prev->context & CTX_DUNGEON)) {
-        ncreatures = xu4_random(8) + 1;
+        ncreatures = tu4_random(8) + 1;
 
         if (ncreatures == 1) {
             if (creature && creature->getEncounterSize() > 0)
-                ncreatures = xu4_random(creature->getEncounterSize()) + creature->getEncounterSize() + 1;
+                ncreatures = tu4_random(creature->getEncounterSize()) + creature->getEncounterSize() + 1;
             else
                 ncreatures = 8;
         }
 
         while (ncreatures > 2 * c->saveGame->members) {
-            ncreatures = xu4_random(16) + 1;
+            ncreatures = tu4_random(16) + 1;
         }
     } else {
         if (creature && creature->getId() == GUARD_ID)
@@ -501,57 +501,10 @@ bool CombatController::attackHit(const Creature* attacker,
     ASSERT(attacker != NULL, "attacker must not be NULL");
     ASSERT(defender != NULL, "defender must not be NULL");
 
-    int attackValue = xu4_random(0x100) + attacker->getAttackBonus();
+    int attackValue = tu4_random(0x100) + attacker->getAttackBonus();
     return attackValue > defender->getDefense();
 }
 
-#ifdef GPU_RENDER
-#include <math.h>
-
-static void animateAttack(const vector<Coords>& path, int range, TileId tid) {
-    float vec[4];
-
-    vec[0] = path[0].x;
-    vec[1] = path[0].y;
-    vec[2] = path[range].x;
-    vec[3] = path[range].y;
-
-    float dx = vec[2] - vec[0];
-    float dy = vec[3] - vec[1];
-    float duration = sqrtf(dx*dx + dy*dy) /
-                float(xu4.settings->screenAnimationFramesPerSecond);
-    AnimId move = anim_startLinearF2(&xu4.eventHandler->fxAnim, duration, 0,
-                                     vec, vec + 2);
-
-    int fx = xu4.game->mapArea.showEffect(path[0], tid, move);
-    EventHandler::wait_msecs(duration * 1000.0);
-    xu4.game->mapArea.removeEffect(fx);
-}
-
-enum AttackResult {
-    AR_None,
-    AR_NoTarget,
-    AR_Miss,
-    AR_Hit
-};
-
-static int attackAt2(CombatMap* map, const Coords& coords,
-                     const PartyMember* attacker,
-                     const Weapon* weapon, Creature** cptr) {
-    Creature* creature = map->creatureAt(coords);
-    if (! creature)
-        return AR_NoTarget; // No target found.
-    *cptr = creature;
-
-    if (c->location->prev->map->id == MAP_ABYSS && ! weapon->isMagic())
-        return AR_Miss;     // Non-magical weapons in the Abyss miss.
-
-    if (CombatController::attackHit(attacker, creature))
-        return AR_Hit;      // The weapon hit!
-
-    return AR_Miss;         // Player naturally missed.
-}
-#endif
 
 bool CombatController::attackAt(const Coords &coords, PartyMember *attacker, int dir, int range, int distance) {
     const Weapon *weapon = attacker->getWeapon();
@@ -636,7 +589,7 @@ static bool rangedAttack(const Coords &coords, CombatMap* map,
     case EFFECT_POISON:
     case EFFECT_POISONFIELD:
         /* see if the player is poisoned */
-        if ((xu4_random(2) == 0) && (target->getStatus() != STAT_POISONED))
+        if ((tu4_random(2) == 0) && (target->getStatus() != STAT_POISONED))
         {
             // POISON_EFFECT, ranged hit
             soundPlay(SOUND_POISON_EFFECT, false);
@@ -648,7 +601,7 @@ static bool rangedAttack(const Coords &coords, CombatMap* map,
 
     case EFFECT_SLEEP:
         /* see if the player is put to sleep */
-        if (xu4_random(2) == 0)
+        if (tu4_random(2) == 0)
         {
             // SLEEP, ranged hit, plays even if sleep failed or PC already asleep
             soundPlay(SOUND_SLEEP, false);
@@ -740,7 +693,7 @@ void CombatController::finishTurn() {
         player->applyEffect(map, map->tileTypeAt(player->coords, WITH_GROUND_OBJECTS)->getEffect());
     }
 
-    quick = (c->aura.getType() == Aura::QUICKNESS) && player && (xu4_random(2) == 0) ? 1 : 0;
+    quick = (c->aura.getType() == Aura::QUICKNESS) && player && (tu4_random(2) == 0) ? 1 : 0;
 
     /* check to see if the player gets to go again (and is still alive) */
     if (!quick || player->isDisabled()){
@@ -751,7 +704,7 @@ void CombatController::finishTurn() {
             /* put a sleeping person in place of the player,
                or restore an awakened member to their original state */
             if (player) {
-                if (player->getStatus() == STAT_SLEEPING && (xu4_random(8) == 0))
+                if (player->getStatus() == STAT_SLEEPING && (tu4_random(8) == 0))
                     player->wakeUp();
 
                 /* remove focus from the current party member */
@@ -871,7 +824,7 @@ void CombatController::movePartyMember(MoveEvent &event) {
 
 // Key handlers
 bool CombatController::keyPressed(int key) {
-    Settings& settings = *xu4.settings;
+    Settings& settings = *tu4.settings;
     bool valid = true;
     bool endTurn = true;
 
@@ -1031,7 +984,7 @@ bool CombatController::keyPressed(int key) {
         break;
 
     case 'v' + U4_ALT:
-        screenMessage("XU4 %s\n", VERSION);
+        screenMessage("TU4 %s\n", VERSION);
         endTurn = false;
         break;
 
@@ -1045,7 +998,7 @@ bool CombatController::keyPressed(int key) {
 
             screenMessage("Ztats\n");
             ZtatsController ctrl;
-            xu4.eventHandler->pushController(&ctrl);
+            tu4.eventHandler->pushController(&ctrl);
             ctrl.waitFor();
         }
         break;
@@ -1093,7 +1046,7 @@ bool CombatController::keyPressed(int key) {
 
     if (valid) {
         gameStampCommandTime();
-        if (endTurn && (xu4.eventHandler->getController() == this))
+        if (endTurn && (tu4.eventHandler->getController() == this))
             c->location->turnCompleter->finishTurn();
     }
 
@@ -1110,7 +1063,7 @@ void CombatController::attack() {
 #ifdef IOS
     U4IOS::IOSDirectionHelper directionPopup;
 #endif
-    xu4.eventHandler->pushController(&dirController);
+    tu4.eventHandler->pushController(&dirController);
     Direction dir = dirController.waitFor();
     if (dir == DIR_NONE)
         return;
@@ -1148,51 +1101,6 @@ void CombatController::attack() {
         targetCoords = attacker->coords;
 
     bool foundTarget = false;
-#ifdef GPU_RENDER
-    Creature* target = NULL;
-    MapTile missTile = map->tileset->getByName(weapon->missTile)->id;
-    int result = AR_None;
-    if (weapon->rangeAbsolute()) {
-        if (range == targetDistance) {
-            result = attackAt2(map, path[range], attacker, weapon, &target);
-        }
-    } else {
-        for (int di = 0; di < targetDistance; ++di) {
-            result = attackAt2(map, path[di], attacker, weapon, &target);
-            if (result != AR_NoTarget) {
-                foundTarget = true;
-                targetDistance = di + 1;
-                targetCoords = path[di];
-                break;
-            }
-        }
-    }
-
-    if (weapon->showTravel() && targetDistance > 1)
-        animateAttack(path, targetDistance - 1, missTile.id);
-
-    switch (result) {
-        case AR_None:
-        case AR_NoTarget:
-            break;
-        case AR_Miss:
-            screenMessage("Missed!\n");
-            GameController::flashTile(targetCoords, missTile, 1);
-            break;
-        case AR_Hit:
-            GameController::flashTile(targetCoords, missTile, 1);
-            soundPlay(SOUND_NPC_STRUCK, false, -1);
-
-            MapTile hitTile = map->tileset->getByName(weapon->hitTile)->getId();
-            GameController::flashTile(targetCoords, hitTile, 3);
-
-            /* apply the damage to the creature */
-            if (! attacker->dealDamage(map, target, attacker->getDamage())) {
-                GameController::flashTile(targetCoords, hitTile, 1);
-            }
-            break;
-    }
-#else
     int distance = 1;
     for (vector<Coords>::iterator i = path.begin(); i != path.end(); i++) {
         if (attackAt(*i, attacker, MASK_DIR(dir), range, distance)) {
@@ -1203,7 +1111,6 @@ void CombatController::attack() {
         }
         distance++;
     }
-#endif
 
     // is weapon lost? (e.g. dagger)
     if (weapon->loseWhenUsed() ||
@@ -1350,7 +1257,7 @@ MapId CombatMap::mapForTile(const Tile *groundTile, const Tile *transport, Objec
 
     if (loc->context & CTX_DUNGEON) {
         if (dungeontileMap.empty()) {
-            const Tileset* ts = xu4.config->tileset();
+            const Tileset* ts = tu4.config->tileset();
             for (size_t i = 0; i < sizeof(dungeonMapId); ++i) {
                 dungeontileMap[ ts->getByName(Tile::sym.dungeonMaps[i]) ] =
                     dungeonMapId[i];
@@ -1364,7 +1271,7 @@ MapId CombatMap::mapForTile(const Tile *groundTile, const Tile *transport, Objec
     }
 
     if (tileMap.empty()) {
-        const Tileset* ts = xu4.config->tileset();
+        const Tileset* ts = tu4.config->tileset();
         for (size_t i = 0; i < sizeof(combatMapId); ++i)
             tileMap[ ts->getByName(Tile::sym.combatMaps[i]) ] = combatMapId[i];
     }

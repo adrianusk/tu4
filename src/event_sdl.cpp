@@ -10,16 +10,16 @@
 #include "context.h"
 #include "screen.h"
 #include "settings.h"
-#include "xu4.h"
+#include "tu4.h"
 
 extern bool verbose;
 
 static void handleMouseMotionEvent(const SDL_Event &event) {
-    if (! xu4.settings->mouseOptions.enabled)
+    if (! tu4.settings->mouseOptions.enabled)
         return;
 
     MouseArea *area;
-    area = xu4.eventHandler->mouseAreaForPoint(event.button.x, event.button.y);
+    area = tu4.eventHandler->mouseAreaForPoint(event.button.x, event.button.y);
     screenSetMouseCursor(area ? area->cursor : MC_DEFAULT);
 }
 
@@ -35,19 +35,19 @@ static void handleActiveEvent(const SDL_Event &event, updateScreenCallback updat
 
 static void handleMouseButtonDownEvent(const SDL_Event &event, Controller *controller, updateScreenCallback updateScreen) {
     MouseArea* area;
-    int xu4Button, keyCmd;
+    int tu4Button, keyCmd;
 
-    if (! xu4.settings->mouseOptions.enabled)
+    if (! tu4.settings->mouseOptions.enabled)
         return;
 
-    area = xu4.eventHandler->mouseAreaForPoint(event.button.x, event.button.y);
+    area = tu4.eventHandler->mouseAreaForPoint(event.button.x, event.button.y);
     if (area) {
         // Map SDL button to what MouseArea uses.
-        xu4Button = event.button.button - 1;
-        if (xu4Button > 2)
-            xu4Button = 0;
+        tu4Button = event.button.button - 1;
+        if (tu4Button > 2)
+            tu4Button = 0;
 
-        keyCmd = area->command[xu4Button];
+        keyCmd = area->command[tu4Button];
         if (keyCmd) {
             controller->keyPressed(keyCmd);
             if (updateScreen)
@@ -92,7 +92,7 @@ static void handleKeyDownEvent(const SDL_Event &event, Controller *controller, u
 #endif
 
 #ifdef DEBUG
-    xu4.eventHandler->recordKey(key);
+    tu4.eventHandler->recordKey(key);
 #endif
 
     if (verbose)

@@ -68,12 +68,12 @@ static void runTalkDialogue(TalkFunc func, TalkState* ts)
     message("\nYou meet %s\n", DSTRING(DS_LOOK));
 
     // 50% of the time they introduce themselves.
-    if (xu4_random(2)) {
+    if (tu4_random(2)) {
         screenCrLf();
         goto tell_name;
     }
 
-    while (xu4.stage == StagePlay) {
+    while (tu4.stage == StagePlay) {
         message("\nYour Interest:\n");
         input = gameGetInput(16);
         screenCrLf();
@@ -86,7 +86,7 @@ static void runTalkDialogue(TalkFunc func, TalkState* ts)
 
         /* Does the person turn away from/attack you? */
         if (ts->turnAway) {
-            int prob = xu4_random(0x100);
+            int prob = tu4_random(0x100);
             if (prob < ts->turnAway) {
                 if (ts->turnAway - prob < 0x40) {
                     message("%s turns away!\n", DSTRING(DS_PRONOUN));
@@ -439,7 +439,7 @@ static const char* dialogueBoron(TalkState* ts, int value, const char* input)
 void talkRunBoron(const Discourse* disc, int conv, Person* person)
 {
     BoronDialogue bd;
-    UThread* ut = xu4.config->boronThread();
+    UThread* ut = tu4.config->boronThread();
     const UBuffer* blk = ur_buffer(disc->conv.id);
 
     bd.ut = ut;

@@ -14,7 +14,7 @@
 #include "screen.h"
 #include "tileanim.h"
 #include "tileset.h"
-#include "xu4.h"
+#include "tu4.h"
 
 
 TileSymbols Tile::sym;
@@ -98,7 +98,7 @@ void Tile::setDirections(const char* dirs) {
 }
 
 const char* Tile::nameStr() const {
-    return xu4.config->symbolName(name);
+    return tu4.config->symbolName(name);
 }
 
 /**
@@ -116,19 +116,17 @@ void Tile::loadImage() {
             anim = tileanims->getByName(animationRule);
         if (anim == NULL)
             errorWarning("animation '%s' not found",
-                         xu4.config->symbolName(animationRule));
+                         tu4.config->symbolName(animationRule));
     }
 }
 
 void Tile::deleteImage()
 {
-#ifndef GPU_RENDER
     if(image) {
         delete image;
         image = NULL;
     }
     scale = SCALED_BASE;
-#endif
 }
 
 /**
@@ -196,7 +194,7 @@ uint16_t Tile::startFrameAnim() const {
         int chance = anim->random;
         if (chance == 0)
             chance = anim->transforms[0]->random;
-        return anim_startCycleRandomI(&xu4.eventHandler->flourishAnim,
+        return anim_startCycleRandomI(&tu4.eventHandler->flourishAnim,
                                       0.25, ANIM_FOREVER, 0,
                                       0, frames, chance);
     }

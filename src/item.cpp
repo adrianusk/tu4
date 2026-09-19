@@ -594,7 +594,7 @@ bool isReagentInInventory(int reag) {
 
 void putReagentInInventory(int reag) {
     c->party->adjustKarma(KA_FOUND_ITEM);
-    c->saveGame->reagents[reag] += xu4_random(8) + 2;
+    c->saveGame->reagents[reag] += tu4_random(8) + 2;
     c->saveGame->lastreagent = c->saveGame->moves & 0xF0;
 
     if (c->saveGame->reagents[reag] > 99) {

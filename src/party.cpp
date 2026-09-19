@@ -12,7 +12,7 @@
 #include "tileset.h"
 #include "utils.h"
 #include "weapon.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #ifdef IOS
 #include "ios_helpers.h"
@@ -38,7 +38,7 @@ PartyMember::PartyMember(Party *p, SaveGamePlayerRecord *pr) :
 
     /* FIXME: we need to rename movement behaviors */
     movement = MOVEMENT_ATTACK_AVATAR;
-    this->ranged = xu4.config->weapon(pr->weapon)->range ? 1 : 0;
+    this->ranged = tu4.config->weapon(pr->weapon)->range ? 1 : 0;
 
     // These lines are the same as setStatus -> PartyMember::addStatus but
     // without notifyOfChange().
@@ -107,11 +107,11 @@ int PartyMember::getMaxMp() const {
 }
 
 const Weapon *PartyMember::getWeapon() const {
-    return xu4.config->weapon(player->weapon);
+    return tu4.config->weapon(player->weapon);
 }
 
 const Armor *PartyMember::getArmor() const {
-    return xu4.config->armor(player->armor);
+    return tu4.config->armor(player->armor);
 }
 
 string PartyMember::getName() const          { return player->name; }
@@ -178,9 +178,9 @@ void PartyMember::advanceLevel() {
     player->hp = player->hpMax;
 
     /* improve stats by 1-8 each */
-    player->str   += xu4_random(8) + 1;
-    player->dex   += xu4_random(8) + 1;
-    player->intel += xu4_random(8) + 1;
+    player->str   += tu4_random(8) + 1;
+    player->dex   += tu4_random(8) + 1;
+    player->intel += tu4_random(8) + 1;
 
     if (player->str > 50) player->str = 50;
     if (player->dex > 50) player->dex = 50;
@@ -205,10 +205,10 @@ void PartyMember::applyEffect(Map* map, TileEffect effect) {
         break;
     case EFFECT_LAVA:
     case EFFECT_FIRE:
-        applyDamage(map, 16 + (xu4_random(32)));
+        applyDamage(map, 16 + (tu4_random(32)));
 
-        /*else if (player == ALL_PLAYERS && xu4_random(2) == 0)
-            playerApplyDamage(&(c->saveGame->players[i]), 10 + (xu4_random(25)));*/
+        /*else if (player == ALL_PLAYERS && tu4_random(2) == 0)
+            playerApplyDamage(&(c->saveGame->players[i]), 10 + (tu4_random(25)));*/
         break;
     case EFFECT_SLEEP:
         soundPlay(SOUND_SLEEP, false);
@@ -278,19 +278,19 @@ cure:
         if (isDead() || player->hp == player->hpMax)
             return false;
 
-        player->hp += 75 + (xu4_random(0x100) % 0x19);
+        player->hp += 75 + (tu4_random(0x100) % 0x19);
         break;
 
     case HT_CAMPHEAL:
         if (isDead() || player->hp == player->hpMax)
             return false;
-        player->hp += 99 + (xu4_random(0x100) & 0x77);
+        player->hp += 99 + (tu4_random(0x100) & 0x77);
         break;
 
     case HT_INNHEAL:
         if (isDead() || player->hp == player->hpMax)
             return false;
-        player->hp += 100 + (xu4_random(50) * 2);
+        player->hp += 100 + (tu4_random(50) * 2);
         break;
 
     default:
@@ -407,13 +407,13 @@ bool PartyMember::applyDamage(Map* map, int damage, bool) {
 }
 
 int PartyMember::getAttackBonus() const {
-    if (xu4.config->weapon(player->weapon)->alwaysHits() || player->dex >= 40)
+    if (tu4.config->weapon(player->weapon)->alwaysHits() || player->dex >= 40)
     return 255;
     return player->dex;
 }
 
 int PartyMember::getDefense() const {
-    return xu4.config->armor(player->armor)->defense;
+    return tu4.config->armor(player->armor)->defense;
 }
 
 bool PartyMember::dealDamage(Map* map, Creature *m, int damage) {
@@ -435,12 +435,12 @@ bool PartyMember::dealDamage(Map* map, Creature *m, int damage) {
 int PartyMember::getDamage() {
     int maxDamage;
 
-    maxDamage = xu4.config->weapon(player->weapon)->damage;
+    maxDamage = tu4.config->weapon(player->weapon)->damage;
     maxDamage += player->str;
     if (maxDamage > 255)
         maxDamage = 255;
 
-    return xu4_random(maxDamage);
+    return tu4_random(maxDamage);
 }
 
 /**
@@ -498,7 +498,7 @@ void PartyMember::wakeUp() {
 MapTile PartyMember::tileForClass(int klass) {
     ASSERT(klass < 8, "invalid class %d in tileForClass", klass);
     Symbol name = Tile::sym.classTiles[klass];
-    const Tile *tile = xu4.config->tileset()->getByName(name);
+    const Tile *tile = tu4.config->tileset()->getByName(name);
     ASSERT(tile, "no tile found for class %d", klass);
     return tile->getId();
 }
@@ -518,7 +518,7 @@ Party::Party(SaveGame *s) : saveGame(s), transport(0), torchduration(0), activeP
 
     // set the party's transport (transport value stored in savegame
     // hardcoded to index into base tilemap)
-    initTransport(xu4.config->usaveIds()->moduleId(saveGame->transport));
+    initTransport(tu4.config->usaveIds()->moduleId(saveGame->transport));
 }
 
 Party::~Party() {
@@ -613,7 +613,7 @@ void Party::adjustKarma(KarmaAction action) {
         AdjustValueMin(newKarma[VIRT_SACRIFICE], -2, 1);
         break;
     case KA_KILLED_EVIL:
-        AdjustValueMax(newKarma[VIRT_VALOR], xu4_random(2), maxVal[VIRT_VALOR]); /* gain one valor half the time, zero the rest */
+        AdjustValueMax(newKarma[VIRT_VALOR], tu4_random(2), maxVal[VIRT_VALOR]); /* gain one valor half the time, zero the rest */
         break;
     case KA_FLED_GOOD:
         AdjustValueMax(newKarma[VIRT_COMPASSION], 2, maxVal[VIRT_COMPASSION]);
@@ -697,12 +697,12 @@ void Party::applyEffect(Map* map, TileEffect effect) {
         case EFFECT_LAVA:
         case EFFECT_FIRE:
         case EFFECT_SLEEP:
-            if (xu4_random(2) == 0)
+            if (tu4_random(2) == 0)
                 members[i]->applyEffect(map, effect);
             break;
         case EFFECT_POISONFIELD:
         case EFFECT_POISON:
-            if (xu4_random(5) == 0)
+            if (tu4_random(5) == 0)
                 members[i]->applyEffect(map, effect);
             break;
         }
@@ -813,7 +813,7 @@ void Party::endTurn() {
 
             switch (members[i]->getStatus()) {
             case STAT_SLEEPING:
-                if (xu4_random(5) == 0)
+                if (tu4_random(5) == 0)
                     members[i]->wakeUp();
                 break;
 
@@ -845,7 +845,7 @@ void Party::endTurn() {
     }
 
     /* heal ship (25% chance it is healed each turn) */
-    if ((loc->context == CTX_WORLDMAP) && (saveGame->shiphull < 50) && xu4_random(4) == 0)
+    if ((loc->context == CTX_WORLDMAP) && (saveGame->shiphull < 50) && tu4_random(4) == 0)
         healShip(1);
 }
 
@@ -853,7 +853,7 @@ void Party::endTurn() {
  * Adds a chest worth of gold to the party's inventory
  */
 int Party::getChest() {
-    int gold = xu4_random(50) + xu4_random(8) + 10;
+    int gold = tu4_random(50) + tu4_random(8) + 10;
     adjustGold(gold);
 
     return gold;
@@ -1039,7 +1039,7 @@ void Party::initTransport(const MapTile& tile) {
 
 void Party::setTransport(MapTile tile) {
     // transport value stored in savegame hardcoded to index into base tilemap
-    saveGame->transport = xu4.config->usaveIds()->ultimaId(tile);
+    saveGame->transport = tu4.config->usaveIds()->ultimaId(tile);
     ASSERT(saveGame->transport != 0, "could not generate valid savegame transport for tile with id %d\n", tile.id);
     initTransport(tile);
     notifyOfChange();

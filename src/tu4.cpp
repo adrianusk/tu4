@@ -18,7 +18,7 @@
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
 #endif
-#include "xu4.h"
+#include "tu4.h"
 #include "config.h"
 #include "debug.h"
 #include "error.h"
@@ -173,7 +173,7 @@ missing_value:
 
 
 #ifdef DEBUG
-void servicesFree(XU4GameServices*);
+void servicesFree(TU4GameServices*);
 #endif
 
 /*
@@ -244,7 +244,7 @@ bool checkAssets(const std::string& textStyle) {
     return true;
 }
 
-void servicesInit(XU4GameServices* gs, Options* opt) {
+void servicesInit(TU4GameServices* gs, Options* opt) {
     if (opt->flags & OPT_VERBOSE)
         verbose = true;
 
@@ -348,22 +348,22 @@ void servicesInit(XU4GameServices* gs, Options* opt) {
             servicesFree(gs);
             errorFatal("Cannot open recorded input from %s", opt->recordFile);
         }
-        xu4_srandom(seed);
+        tu4_srandom(seed);
     } else if (opt->flags & OPT_RECORD) {
         uint32_t seed = time(NULL);
         if (! gs->eventHandler->beginRecording(opt->recordFile, seed)) {
             servicesFree(gs);
             errorFatal("Cannot open recording file %s", opt->recordFile);
         }
-        xu4_srandom(seed);
+        tu4_srandom(seed);
     } else
 #endif
-        xu4_srandom(time(NULL));
+        tu4_srandom(time(NULL));
 
     gs->stage = (opt->flags & OPT_NO_INTRO) ? StagePlay : StageIntro;
 }
 
-void servicesFree(XU4GameServices* gs) {
+void servicesFree(TU4GameServices* gs) {
     delete gs->game;
     delete gs->intro;
     delete gs->saveGame;
@@ -376,7 +376,7 @@ void servicesFree(XU4GameServices* gs) {
     u4fcleanup();
 }
 
-XU4GameServices xu4;
+TU4GameServices tu4;
 
 
 /*
@@ -428,22 +428,22 @@ int main(int argc, char *argv[]) {
     if (! parseOptions(&opt, argc-1, argv+1))
         return 0;
 
-    memset(&xu4, 0, sizeof xu4);
-    servicesInit(&xu4, &opt);
+    memset(&tu4, 0, sizeof tu4);
+    servicesInit(&tu4, &opt);
 
 #ifdef DEBUG
     if (opt.flags & OPT_TEST_SAVE) {
         int status;
-        xu4.game = new GameController();
-        if (xu4.game->initContext()) {
+        tu4.game = new GameController();
+        if (tu4.game->initContext()) {
             gameSave("/tmp/tu4/");
             status = 0;
         } else {
             printf("initContext failed!\n");
             status = 1;
         }
-        xu4.stage = StageExitGame;
-        servicesFree(&xu4);
+        tu4.stage = StageExitGame;
+        servicesFree(&tu4);
         return status;
     }
 #endif
@@ -468,21 +468,21 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    while( xu4.stage != StageExitGame )
+    while( tu4.stage != StageExitGame )
     {
-        if( xu4.stage == StageIntro ) {
+        if( tu4.stage == StageIntro ) {
             /* Show the introduction */
-            if (! xu4.intro)
-                xu4.intro = new IntroController;
-            xu4.eventHandler->runController(xu4.intro);
+            if (! tu4.intro)
+                tu4.intro = new IntroController;
+            tu4.eventHandler->runController(tu4.intro);
         } else {
             /* Play the game! */
-            if (! xu4.game)
-                xu4.game = new GameController();
-            xu4.eventHandler->runController(xu4.game);
+            if (! tu4.game)
+                tu4.game = new GameController();
+            tu4.eventHandler->runController(tu4.game);
         }
     }
 
-    servicesFree(&xu4);
+    servicesFree(&tu4);
     return 0;
 }

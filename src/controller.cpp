@@ -4,7 +4,7 @@
 
 #include "controller.h"
 #include "event.h"
-#include "xu4.h"
+#include "tu4.h"
 
 /**
  * \param timerInterval     The timerFired method will be called if this value
@@ -74,11 +74,11 @@ void Controller::timerCallback(void *data) {
 }
 
 void Controller_startWait() {
-    xu4.eventHandler->run();
-    xu4.eventHandler->setControllerDone(false);
-    xu4.eventHandler->popController();
+    tu4.eventHandler->run();
+    tu4.eventHandler->setControllerDone(false);
+    tu4.eventHandler->popController();
 }
 
 void Controller_endWait() {
-    xu4.eventHandler->setControllerDone();
+    tu4.eventHandler->setControllerDone();
 }

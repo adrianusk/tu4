@@ -12,7 +12,7 @@
 #include "combat.h"
 #include "settings.h"
 #include "tileset.h"
-#include "xu4.h"
+#include "tu4.h"
 
 
 /**
@@ -55,7 +55,7 @@ void Location::getTilesAt(std::vector<MapTile>& tiles,
     bool avatar = this->coords == coords;
 
     /* Do not return objects for VIEW_GEM mode, show only the avatar and tiles */
-    if (viewMode == VIEW_GEM && (!xu4.settings->enhancements || !xu4.settings->enhancementsOptions.peerShowsObjects)) {
+    if (viewMode == VIEW_GEM && (!tu4.settings->enhancements || !tu4.settings->enhancementsOptions.peerShowsObjects)) {
         // When viewing a gem, always show the avatar regardless of whether or not
         // it is shown in our normal view
         if (avatar)
@@ -104,7 +104,7 @@ void Location::getTilesAt(std::vector<MapTile>& tiles,
         if (m && m->isAsleep())
             visibleTile.freezeAnimation = true;
         else if (obj->animId != ANIM_UNUSED)
-            visibleTile.frame = anim_valueI(&xu4.eventHandler->flourishAnim,
+            visibleTile.frame = anim_valueI(&tu4.eventHandler->flourishAnim,
                                             obj->animId);
         tiles.push_back(visibleTile);
     }
@@ -227,7 +227,7 @@ TileId Location::getReplacementTile(const Coords& atCoords, const Tile * forTile
  */
 int Location::getCurrentPosition(Coords* pos) {
     if (context & CTX_COMBAT) {
-        CombatController *cc = dynamic_cast<CombatController *>(xu4.eventHandler->getController());
+        CombatController *cc = dynamic_cast<CombatController *>(tu4.eventHandler->getController());
         PartyMemberVector *party = cc->getParty();
         *pos = (*party)[cc->getFocus()]->coords;
     }

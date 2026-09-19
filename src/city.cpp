@@ -7,7 +7,7 @@
 #include "config.h"
 #include "context.h"
 #include "party.h"
-#include "xu4.h"
+#include "tu4.h"
 
 
 City::City() {
@@ -25,11 +25,11 @@ City::~City() {
  * Returns the name of the city
  */
 const char* City::getName() const {
-    return xu4.config->confString(name);
+    return tu4.config->confString(name);
 }
 
 const char* City::cityTypeStr() const {
-    return xu4.config->symbolName(cityType);
+    return tu4.config->symbolName(cityType);
 }
 
 /**

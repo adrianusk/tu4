@@ -399,15 +399,15 @@ int saveGameMonstersRead(SaveGameMonsterRecord *monsterTable, FILE *f) {
 
 #ifndef SAVE_UTIL
 #include "settings.h"
-#include "xu4.h"
+#include "tu4.h"
 
 /*
- * Set xu4.saveGame to a new loaded game.  If loading fails or there are no
- * players defined then set xu4.errorMessage and return NULL.
+ * Set tu4.saveGame to a new loaded game.  If loading fails or there are no
+ * players defined then set tu4.errorMessage and return NULL.
  */
 SaveGame* saveGameLoad() {
     SaveGame* sg = NULL;
-    FILE* fp = fopen((xu4.settings->getUserPath() + PARTY_SAV).c_str(), "rb");
+    FILE* fp = fopen((tu4.settings->getUserPath() + PARTY_SAV).c_str(), "rb");
     if (fp) {
         sg = new SaveGame;
         sg->read(fp);
@@ -424,10 +424,10 @@ SaveGame* saveGameLoad() {
     }
 
     if (sg) {
-        delete xu4.saveGame;
-        xu4.saveGame = sg;
+        delete tu4.saveGame;
+        tu4.saveGame = sg;
     } else {
-        xu4.errorMessage = "Initiate a new game first!";
+        tu4.errorMessage = "Initiate a new game first!";
     }
     return sg;
 }

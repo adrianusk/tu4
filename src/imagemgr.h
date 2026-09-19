@@ -13,7 +13,7 @@
 #include "u4file.h"
 
 #define errorLoadImage(Sym) \
-    errorFatal("Unable to load image \"%s\"", xu4.config->symbolName(Sym));
+    errorFatal("Unable to load image \"%s\"", tu4.config->symbolName(Sym));
 
 /*
  * The image manager is responsible for loading and keeping track of
@@ -143,9 +143,6 @@ struct SubImage {
     int16_t ystart, yspacing;
     int16_t delay, duration;
     int16_t method;             // AnimType for intro elements, -1 if unused
-#ifdef USE_GL
-    uint16_t celCount;
-#endif
 };
 
 enum ImageFixup {
@@ -185,10 +182,6 @@ public:
     uint8_t filetype;
     uint8_t fixup;              /**< a routine to do miscellaneous fixes to the image */
     Image *image;               /**< the image we're describing */
-#ifdef USE_GL
-    uint32_t tex;               /**< OpenGL texture name */
-    const float* tileTexCoord;  /**< Indexed by VisualId */
-#endif
     const SubImage* subImages;
     std::map<Symbol, int> subImageIndex;
 };

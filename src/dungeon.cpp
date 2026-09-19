@@ -12,7 +12,7 @@
 #include "screen.h"
 #include "tileset.h"
 #include "utils.h"
-#include "xu4.h"
+#include "tu4.h"
 
 Dungeon::~Dungeon() {
     if (roomMaps) {
@@ -31,7 +31,7 @@ Dungeon::~Dungeon() {
  * Returns the name of the dungeon
  */
 const char* Dungeon::getName() const {
-    return xu4.config->confString(name);
+    return tu4.config->confString(name);
 }
 
 /**
@@ -345,7 +345,7 @@ static int u4DngMonster(CreatureId cid) {
 uint8_t* Dungeon::fillRawMap() {
     uint32_t x, y, z;
     TileId tid;
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
     uint8_t* dp = (uint8_t*) &rawMap.front();
     int uid, dngId;
 

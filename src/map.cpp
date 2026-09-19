@@ -11,7 +11,7 @@
 #include "party.h"
 #include "portal.h"
 #include "tileset.h"
-#include "xu4.h"
+#include "tu4.h"
 
 
 /**
@@ -239,7 +239,7 @@ Map::~Map() {
 }
 
 const char* Map::getName() const {
-    return xu4.config->confString(fname);
+    return tu4.config->confString(fname);
 }
 
 /*
@@ -353,7 +353,7 @@ void Map::queryVisible(const Coords& center, int radius,
         func(cp, vid, user);
     }
 
-    const Animator* animator = &xu4.eventHandler->flourishAnim;
+    const Animator* animator = &tu4.eventHandler->flourishAnim;
     ObjectDeque::const_iterator it;
     for(it = objects.begin(); it != objects.end(); it++) {
         Object* obj = *it;
@@ -900,7 +900,7 @@ const char* Map::labelAt(const Coords& pos) const {
     std::map<Symbol, Coords>::const_iterator it;
     for (it = labels.begin(); it != labels.end(); ++it) {
         if (it->second == pos)
-            return xu4.config->symbolName(it->first);
+            return tu4.config->symbolName(it->first);
     }
     return NULL;
 }
@@ -986,7 +986,7 @@ void Map::fillMonsterTable(SaveGameMonsterRecord* table) const {
      * Fill in our monster table
      */
     MapTile prevTile;
-    const UltimaSaveIds* saveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* saveIds = tu4.config->usaveIds();
     for (i = 0; i < MONSTERTABLE_SIZE; i++) {
         obj = monsters[i];
         Coords c = obj->coords,
@@ -1015,7 +1015,7 @@ void Map::fillMonsterTableDungeon(SaveGameMonsterRecord* table) const {
     MapTile prevTile;
     ObjectDeque::const_iterator it;
     SaveGameMonsterRecord* end = table + MONSTERTABLE_SIZE;
-    const UltimaSaveIds* saveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* saveIds = tu4.config->usaveIds();
     const Object *obj;
 
     for (it = objects.begin(); it != objects.end(); ++it) {

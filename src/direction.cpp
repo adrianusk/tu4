@@ -86,7 +86,7 @@ Direction dirRandomDir(int valid_directions_mask) {
     if (n == 0)
         return DIR_NONE;
 
-    return d[xu4_random(n)];
+    return d[tu4_random(n)];
 }
 
 /**

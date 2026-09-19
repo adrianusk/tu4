@@ -5,14 +5,15 @@
 -include ../make.config
 
 PREFIX ?= /usr/local
-UI ?= allegro
+UI ?= sdl2
 CONF ?= xml
-GPU ?= scale
 
 bindir=$(PREFIX)/bin
 libdir=$(PREFIX)/lib
 datadir=$(PREFIX)/share
 
+# Supported UI backends: sdl2 (default), sdl, sdl3. (The Allegro backend and
+# the OpenGL/GPU renderer were removed — tu4 is a text-mode SDL build.)
 ifeq ($(UI), sdl)
 UILIBS=$(shell sdl-config --libs) -lSDL_mixer
 UIFLAGS=$(shell sdl-config --cflags)
@@ -23,18 +24,7 @@ else ifeq ($(UI), sdl3)
 UILIBS=$(shell pkg-config --libs sdl3 SDL3_mixer)
 UIFLAGS=$(shell pkg-config --cflags sdl3 SDL3_mixer)
 else
-UILIBS=-lallegro_acodec -lallegro_audio -lallegro
-UIFLAGS=
-endif
-
-ifeq ($(GPU),scale)
-	CONF=boron
-	UIFLAGS+=-DUSE_GL
-	UILIBS+=-lGL
-else ifeq ($(GPU),all)
-	CONF=boron
-	UIFLAGS+=-DUSE_GL -DGPU_RENDER
-	UILIBS+=-lGL
+$(error Unsupported UI "$(UI)": use sdl2 (default), sdl, or sdl3)
 endif
 
 ifeq ($(CONF),xml)

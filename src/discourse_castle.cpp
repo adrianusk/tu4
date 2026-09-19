@@ -305,7 +305,7 @@ static void runTalkLordBritish(const U4TalkLordBritish* lb)
                 "How may I help thee?\n");
     }
 
-    while (xu4.stage == StagePlay) {
+    while (tu4.stage == StagePlay) {
         input = gameGetInput(16);
         screenCrLf();
         in = input.c_str();
@@ -366,7 +366,7 @@ static void runTalkHawkwind(const U4TalkHawkwind* hw)
     message("%s%s%s", HW_STRING(HW_WELCOME), pcName, HW_STRING(HW_GREETING));
     anyKey.wait();
 
-    while (xu4.stage == StagePlay) {
+    while (tu4.stage == StagePlay) {
         message(HW_STRING(prompt));
         prompt = HW_PROMPT;
         input = gameGetInput(16);

@@ -6,7 +6,7 @@
 
 #include "error.h"
 #include "textview.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #define NOTIFY(ev)  gs_emitMessage(SENDER_MENU, ev)
 

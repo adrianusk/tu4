@@ -8,7 +8,7 @@
 #include "config.h"
 #include "dungeon.h"
 #include "screen.h"
-#include "xu4.h"
+#include "tu4.h"
 
 /**
  * Creates a dungeon ladder portal based on the action given
@@ -69,7 +69,7 @@ int usePortalAt(Location *location, const Coords& coords, PortalTriggerAction ac
         return 1;
     }
 
-    destination = xu4.config->map(portal->destid);
+    destination = tu4.config->map(portal->destid);
 
     if (! portal->message) {
         switch(action) {
@@ -116,20 +116,20 @@ int usePortalAt(Location *location, const Coords& coords, PortalTriggerAction ac
 
     /* ok, we know the portal is going to work -- now display the custom message, if any */
     if (portal->message)
-        screenMessage(xu4.config->confString(portal->message));
+        screenMessage(tu4.config->confString(portal->message));
     else if (msg[0])
         screenMessage(msg);
 
     /* portal just exits to parent map */
     if (portal->exitPortal) {
-        xu4.game->exitToParentMap();
+        tu4.game->exitToParentMap();
         musicPlayLocale();
         return 1;
     }
     else if (portal->destid == location->map->id)
         location->coords = portal->start;
     else {
-        xu4.game->setMap(destination, portal->saveLocation, portal);
+        tu4.game->setMap(destination, portal->saveLocation, portal);
         musicPlayLocale();
     }
 
@@ -140,7 +140,7 @@ int usePortalAt(Location *location, const Coords& coords, PortalTriggerAction ac
      */
     if (portal->retroActiveDest && c->location->prev) {
         c->location->prev->coords = portal->retroActiveDest->coords;
-        c->location->prev->map = xu4.config->map(portal->retroActiveDest->mapid);
+        c->location->prev->map = tu4.config->map(portal->retroActiveDest->mapid);
     }
 
     if (destination->type == Map::SHRINE)

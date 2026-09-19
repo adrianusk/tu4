@@ -11,7 +11,7 @@
 #include "settings.h"
 #include "stats.h"
 #include "u4.h"
-#include "xu4.h"
+#include "tu4.h"
 
 //#define REVIVE_WORLD_X 86
 //#define REVIVE_WORLD_Y 107
@@ -23,7 +23,7 @@
 class DeathController : public Controller {
 public:
     DeathController()
-        : Controller(xu4.settings->gameCyclesPerSecond * PAUSE_SEC)
+        : Controller(tu4.settings->gameCyclesPerSecond * PAUSE_SEC)
     {
         setDeleteOnPop();
         msg = 0;
@@ -35,7 +35,7 @@ public:
 };
 
 void deathStart(int delaySeconds) {
-    EventHandler* eh = xu4.eventHandler;
+    EventHandler* eh = tu4.eventHandler;
     if (dynamic_cast<DeathController *>(eh->getController()))
         return;
 
@@ -53,9 +53,9 @@ void deathStart(int delaySeconds) {
 
 static void deathRevive() {
     while(! c->location->map->isWorldMap() && c->location->prev != NULL)
-        xu4.game->exitToParentMap();
+        tu4.game->exitToParentMap();
 
-    xu4.eventHandler->popController();      // Deletes the DeathController
+    tu4.eventHandler->popController();      // Deletes the DeathController
 
     gameSetViewMode(VIEW_NORMAL);
 
@@ -64,7 +64,7 @@ static void deathRevive() {
 
     /* Now, move the avatar into the castle and put him
        in front of Lord British */
-    xu4.game->setMap(xu4.config->map(MAP_CASTLE_LB2), 1, NULL);
+    tu4.game->setMap(tu4.config->map(MAP_CASTLE_LB2), 1, NULL);
     Coords& coord = c->location->coords;
     coord.x = REVIVE_CASTLE_X;
     coord.y = REVIVE_CASTLE_Y;

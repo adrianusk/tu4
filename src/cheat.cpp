@@ -12,7 +12,7 @@
 #include "tileset.h"
 #include "utils.h"
 #include "weapon.h"
-#include "xu4.h"
+#include "tu4.h"
 
 
 CheatMenuController::CheatMenuController(GameController *game) : game(game) {
@@ -34,7 +34,7 @@ bool CheatMenuController::keyPressed(int key) {
         screenMessage("Gate %d!\n", key - '0');
 
         if (c->location->map->isWorldMap()) {
-            const Coords *moongate = xu4.config->moongateCoords(key - '1');
+            const Coords *moongate = tu4.config->moongateCoords(key - '1');
             if (moongate)
                 c->location->coords = *moongate;
         }
@@ -63,7 +63,7 @@ bool CheatMenuController::keyPressed(int key) {
         for (i = ARMR_NONE + 1; i < ARMR_MAX; i++)
             c->saveGame->armor[i] = 8;
         for (i = WEAP_HANDS + 1; i < WEAP_MAX; i++) {
-            const Weapon *weapon = xu4.config->weapon(static_cast<WeaponType>(i));
+            const Weapon *weapon = tu4.config->weapon(static_cast<WeaponType>(i));
             if (weapon->loseWhenUsed() || weapon->loseWhenRanged())
                 c->saveGame->weapons[i] = 99;
             else
@@ -95,17 +95,17 @@ bool CheatMenuController::keyPressed(int key) {
         bool found = false;
         for (unsigned p = 0; p < c->location->map->portals.size(); p++) {
             MapId destid = c->location->map->portals[p]->destid;
-            string destNameLower = xu4.config->map(destid)->getName();
+            string destNameLower = tu4.config->map(destid)->getName();
             lowercase(destNameLower);
             if (destNameLower.find(dest) != string::npos) {
-                screenMessage("\n%s\n", xu4.config->map(destid)->getName());
+                screenMessage("\n%s\n", tu4.config->map(destid)->getName());
                 c->location->coords = c->location->map->portals[p]->coords;
                 found = true;
                 break;
             }
         }
         if (!found) {
-            Symbol destSym = xu4.config->intern(dest.c_str());
+            Symbol destSym = tu4.config->intern(dest.c_str());
             const Coords* coords = c->location->map->getLabel(destSym);
             if (coords) {
                 screenMessage("\n%s\n", dest.c_str());
@@ -133,7 +133,7 @@ bool CheatMenuController::keyPressed(int key) {
                       "(more)");
 
         ReadChoiceController pauseController("");
-        xu4.eventHandler->pushController(&pauseController);
+        tu4.eventHandler->pushController(&pauseController);
         pauseController.waitFor();
 
         screenMessage("\n"
@@ -150,7 +150,7 @@ bool CheatMenuController::keyPressed(int key) {
                       "x - Exit Map\n"
                       "(more)");
 
-        xu4.eventHandler->pushController(&pauseController);
+        tu4.eventHandler->pushController(&pauseController);
         pauseController.waitFor();
 
         screenMessage("\n"
@@ -258,13 +258,13 @@ bool CheatMenuController::keyPressed(int key) {
             if (name) {
                 ReadDirController readDir;
                 const Tile *tile;
-                Symbol symbol = xu4.config->intern(name);
+                Symbol symbol = tu4.config->intern(name);
 
                 tile = c->location->map->tileset->getByName(symbol);
                 screenMessage("%s\n", tile->nameStr());
 
                 // Get the direction in which to create the transport
-                xu4.eventHandler->pushController(&readDir);
+                tu4.eventHandler->pushController(&readDir);
 
                 screenMessage("Dir: ");
                 map_move(coords, readDir.waitFor(), c->location->map);
@@ -302,7 +302,7 @@ bool CheatMenuController::keyPressed(int key) {
     case 'w': {
         screenMessage("Wind Dir ('l' to lock):\n");
         WindCmdController ctrl;
-        xu4.eventHandler->pushController(&ctrl);
+        tu4.eventHandler->pushController(&ctrl);
         ctrl.waitFor();
         break;
     }
@@ -390,7 +390,7 @@ void CheatMenuController::summonCreature(const string &name) {
     /* find the creature by its id and spawn it */
     unsigned int id = atoi(cname);
     if (id > 0)
-        m = xu4.config->creature(id);
+        m = tu4.config->creature(id);
 
     if (!m)
         m = Creature::getByName(cname);

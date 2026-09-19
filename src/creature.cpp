@@ -13,9 +13,9 @@
 #include "settings.h"
 #include "textview.h"   // required to change screenMessage() color
 #include "utils.h"
-#include "xu4.h"
+#include "tu4.h"
 
-#define CSTR(ID)    xu4.config->confString(ID)
+#define CSTR(ID)    tu4.config->confString(ID)
 
 enum StatusBits {
     StatPoisoned = 0x01,
@@ -61,13 +61,13 @@ bool Creature::isAttackable() const  {
 }
 
 int Creature::getDamage() const {
-    int x = xu4_random(basehp >> 2);
+    int x = tu4_random(basehp >> 2);
     return (x >> 4) * 10 + (x % 10);
 }
 
 int Creature::setInitialHp(int points) {
     if (points < 0)
-        hp = xu4_random(basehp) | (basehp / 2);
+        hp = tu4_random(basehp) | (basehp / 2);
     else
         hp = points;
 
@@ -78,7 +78,7 @@ int Creature::setInitialHp(int points) {
 }
 
 void Creature::setRandomRanged() {
-    rangedhittile = rangedmisstile = Tile::sym.fields[ xu4_random(4) ];
+    rangedhittile = rangedmisstile = Tile::sym.fields[ tu4_random(4) ];
 }
 
 CreatureStatus Creature::getState() const {
@@ -125,7 +125,7 @@ bool Creature::specialAction() {
            and not in a city
            Note: Monsters in settlements in U3 do fire on party
         */
-        if (mapdist <= 3 && xu4_random(2) == 0 && (loc->context & CTX_CITY) == 0) {
+        if (mapdist <= 3 && tu4_random(2) == 0 && (loc->context & CTX_CITY) == 0) {
             /* find direction of the avatar in relation to the creature */
             int dir = map_getRelativeDirection(coords, loc->coords, loc->map);
             vector<Coords> path =
@@ -283,7 +283,7 @@ void Creature::act(CombatController *controller) {
     CombatMap* map = controller->getMap();
 
     /* see if creature wakes up if it is asleep */
-    if ((getStatus() == STAT_SLEEPING) && (xu4_random(8) == 0))
+    if ((getStatus() == STAT_SLEEPING) && (tu4_random(8) == 0))
         wakeUp();
 
     /* if the creature is still asleep, then do nothing */
@@ -298,15 +298,15 @@ void Creature::act(CombatController *controller) {
      */
 
     // creatures who teleport do so 1/8 of the time
-    if (teleports() && xu4_random(8) == 0)
+    if (teleports() && tu4_random(8) == 0)
         action = CA_TELEPORT;
     // creatures who ranged attack do so 1/4 of the time.  Make sure
     // their ranged attack is not negated!
-    else if (ranged != 0 && xu4_random(4) == 0 &&
+    else if (ranged != 0 && tu4_random(4) == 0 &&
              (rangedhittile != Tile::sym.magicFlash || (c->aura.getType() != Aura::NEGATE)))
         action = CA_RANGED;
     // creatures who cast sleep do so 1/4 of the time they don't ranged attack
-    else if (castsSleep() && (c->aura.getType() != Aura::NEGATE) && (xu4_random(4) == 0))
+    else if (castsSleep() && (c->aura.getType() != Aura::NEGATE) && (tu4_random(4) == 0))
         action = CA_CAST_SLEEP;
     else if (getState() == MSTAT_FLEEING)
         action = CA_FLEE;
@@ -343,9 +343,9 @@ void Creature::act(CombatController *controller) {
 
             if (target && isPartyMember(target)) {
                 /* steal gold if the creature steals gold */
-                if (stealsGold() && xu4_random(4) == 0) {
+                if (stealsGold() && tu4_random(4) == 0) {
                     soundPlay(SOUND_ITEM_STOLEN, false);                       // ITEM_STOLEN, gold
-                    c->party->adjustGold(-(xu4_random(0x3f)));
+                    c->party->adjustGold(-(tu4_random(0x3f)));
                 }
 
                 /* steal food if the creature steals food */
@@ -370,7 +370,7 @@ void Creature::act(CombatController *controller) {
             PartyMemberVector::iterator j;
 
             for (j = party.begin(); j != party.end(); j++) {
-                if (xu4_random(2) == 0)
+                if (tu4_random(2) == 0)
                     (*j)->putToSleep();
             }
         }
@@ -383,7 +383,7 @@ void Creature::act(CombatController *controller) {
         bool firstTry = true;
 
         while (!valid) {
-            new_c = Coords(xu4_random(map->width), xu4_random(map->height), c->location->coords.z);
+            new_c = Coords(tu4_random(map->width), tu4_random(map->height), c->location->coords.z);
 
             const Tile *tile = map->tileTypeAt(new_c, WITH_OBJECTS);
 
@@ -445,7 +445,7 @@ void Creature::applyTileEffect(Map* map, TileEffect effect) {
         case EFFECT_SLEEP:
             /* creature fell asleep! */
             if ((resists != EFFECT_SLEEP) &&
-                (xu4_random(0xFF) >= hp))
+                (tu4_random(0xFF) >= hp))
                 putToSleep();
             break;
 
@@ -453,13 +453,13 @@ void Creature::applyTileEffect(Map* map, TileEffect effect) {
         case EFFECT_FIRE:
             /* deal 0 - 127 damage to the creature if it is not immune to fire damage */
             if ((resists != EFFECT_FIRE) && (resists != EFFECT_LAVA))
-                applyDamage(map, xu4_random(0x7F), false);
+                applyDamage(map, tu4_random(0x7F), false);
             break;
 
         case EFFECT_POISONFIELD:
             /* deal 0 - 127 damage to the creature if it is not immune to poison field damage */
             if (resists != EFFECT_POISONFIELD)
-                applyDamage(map, xu4_random(0x7F), false);
+                applyDamage(map, tu4_random(0x7F), false);
             break;
 
         case EFFECT_POISON:
@@ -481,8 +481,8 @@ bool Creature::divide(Map* map) {
     Direction d = dirRandomDir(dirmask);
 
     /* this is a game enhancement, make sure it's turned on! */
-    if (!xu4.settings->enhancements ||
-        !xu4.settings->enhancementsOptions.slimeDivides)
+    if (!tu4.settings->enhancements ||
+        !tu4.settings->enhancementsOptions.slimeDivides)
         return false;
 
     /* make sure there's a place to put the divided creature! */
@@ -506,12 +506,12 @@ bool Creature::divide(Map* map) {
 
 bool Creature::spawnOnDeath(Map* map) {
     /* this is a game enhancement, make sure it's turned on! */
-    if (!xu4.settings->enhancements ||
-        !xu4.settings->enhancementsOptions.gazerSpawnsInsects)
+    if (!tu4.settings->enhancements ||
+        !tu4.settings->enhancementsOptions.gazerSpawnsInsects)
         return false;
 
     /* create our new creature! */
-    map->addCreature(xu4.config->creature(spawn), coords);
+    map->addCreature(tu4.config->creature(spawn), coords);
     return true;
 }
 
@@ -560,7 +560,7 @@ Creature *Creature::nearestOpponent(Map* map, int *dist, bool ranged) const {
                 d = map_movementDistance(objCoords, coords);
 
             /* skip target 50% of time if same distance */
-            if (d < leastDist || (d == leastDist && xu4_random(2) == 0)) {
+            if (d < leastDist || (d == leastDist && tu4_random(2) == 0)) {
                 opponent = dynamic_cast<Creature*>(*i);
                 leastDist = d;
             }
@@ -708,7 +708,7 @@ bool Creature::applyDamage(Map* map, int damage, bool byplayer) {
     }
 
     /* creature is still alive and has the chance to divide - xu4 enhancement */
-    if (divides() && xu4_random(2) == 0)
+    if (divides() && tu4_random(2) == 0)
         divide(map);
 
     return true;
@@ -726,7 +726,7 @@ bool Creature::dealDamage(Map* map, Creature *m, int damage) {
  * or NULL if a creature with that tile cannot be found
  */
 const Creature* Creature::getByTile(const MapTile& tile) {
-    return xu4.config->creatureOfTile(tile.id);
+    return tu4.config->creatureOfTile(tile.id);
 }
 
 /**
@@ -736,7 +736,7 @@ const Creature* Creature::getByTile(const MapTile& tile) {
 const Creature* Creature::getByName(const char* name) {
     uint32_t i;
     uint32_t count;
-    const Creature* const* cp = xu4.config->creatureTable(&count);
+    const Creature* const* cp = tu4.config->creatureTable(&count);
 
     for (i = 0; i < count; ++i) {
         if (strcasecmp(CSTR(cp[i]->name), name) == 0)
@@ -758,13 +758,13 @@ const Creature* Creature::randomForTile(const Tile *tile) {
     TileId randTile;
 
     if (tile->isSailable()) {
-        randTile = xu4.config->creature(PIRATE_ID)->tile.getId();
-        randTile += xu4_random(7);
+        randTile = tu4.config->creature(PIRATE_ID)->tile.getId();
+        randTile += tu4_random(7);
         return getByTile(randTile);
     }
     else if (tile->isSwimable()) {
-        randTile = xu4.config->creature(NIXIE_ID)->tile.getId();
-        randTile += xu4_random(5);
+        randTile = tu4.config->creature(NIXIE_ID)->tile.getId();
+        randTile += tu4_random(5);
         return getByTile(randTile);
     }
 
@@ -779,8 +779,8 @@ const Creature* Creature::randomForTile(const Tile *tile) {
     else
         era = 0x03;
 
-    randTile = xu4.config->creature(ORC_ID)->tile.getId();
-    randTile += era & xu4_random(0x10) & xu4_random(0x10);
+    randTile = tu4.config->creature(ORC_ID)->tile.getId();
+    randTile += era & tu4_random(0x10) & tu4_random(0x10);
     return getByTile(randTile);
 }
 
@@ -793,11 +793,11 @@ const Creature* Creature::randomForDungeon(int dngLevel) {
     //  https://sourceforge.net/p/xu4/patches/37/
     int adjustedDngLevel = dngLevel + 1;
     size_t range = adjustedDngLevel < 5 ? 3 : 4;
-    CreatureId monster = STORM_ID + adjustedDngLevel + xu4_random(range);
+    CreatureId monster = STORM_ID + adjustedDngLevel + tu4_random(range);
     if(monster >= MIMIC_ID)
         ++monster;
 
-    return xu4.config->creature(monster);
+    return tu4.config->creature(monster);
 }
 
 
@@ -809,7 +809,7 @@ const Creature* Creature::randomAmbushing() {
     int randCreature;
     uint32_t i;
     uint32_t count;
-    const Creature* const* creatures = xu4.config->creatureTable(&count);
+    const Creature* const* creatures = tu4.config->creatureTable(&count);
     const Creature* cp;
 
     /* first, find out how many creatures exist that might ambush you */
@@ -820,7 +820,7 @@ const Creature* Creature::randomAmbushing() {
 
     if (numAmbushingCreatures > 0) {
         /* now, randomely select one of them */
-        randCreature = xu4_random(numAmbushingCreatures);
+        randCreature = tu4_random(numAmbushingCreatures);
         numAmbushingCreatures = 0;
 
         /* now, find the one we selected */

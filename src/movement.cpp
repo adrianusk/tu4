@@ -8,7 +8,7 @@
 #include "debug.h"
 #include "dungeon.h"
 #include "utils.h"
-#include "xu4.h"
+#include "tu4.h"
 
 bool collisionOverride = false;
 
@@ -175,12 +175,12 @@ int moveObject(Map *map, Creature *obj, const Coords& avatar) {
     case MOVEMENT_WANDER:
         /* World map wandering creatures always move, whereas
            town creatures that wander sometimes stay put */
-        if (map->isWorldMap() || xu4_random(2) == 0)
+        if (map->isWorldMap() || tu4_random(2) == 0)
             dir = dirRandomDir(map->getValidMoves(new_coords, obj->tile));
         break;
 
     case MOVEMENT_FOLLOW_AVATAR:
-        if (! map->isWorldMap() && xu4_random(2))
+        if (! map->isWorldMap() && tu4_random(2))
             return 0;
         // Fall through...
 
@@ -310,7 +310,7 @@ int moveCombatObject(int act, Map *map, Creature *obj, const Coords& target) {
  * Moves a party member during combat screens
  */
 void movePartyMember(MoveEvent &event) {
-    CombatController *ct = dynamic_cast<CombatController *>(xu4.eventHandler->getController());
+    CombatController *ct = dynamic_cast<CombatController *>(tu4.eventHandler->getController());
     CombatMap *cm = getCombatMap();
     int member = ct->getFocus();
     Coords newCoords;
@@ -413,13 +413,13 @@ bool slowedByTile(const Tile *tile) {
 
     switch (tile->getSpeed()) {
     case SLOW:
-        slow = xu4_random(8) == 0;
+        slow = tu4_random(8) == 0;
         break;
     case VSLOW:
-        slow = xu4_random(4) == 0;
+        slow = tu4_random(4) == 0;
         break;
     case VVSLOW:
-        slow = xu4_random(2) == 0;
+        slow = tu4_random(2) == 0;
         break;
     case FAST:
     default:

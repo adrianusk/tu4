@@ -14,11 +14,8 @@
 #include "mapmgr.h"
 #include "person.h"
 #include "u4file.h"
-#include "xu4.h"
+#include "tu4.h"
 
-#ifdef GPU_RENDER
-#include "tileset.h"
-#endif
 
 
 #ifdef U5_DAT
@@ -36,7 +33,7 @@ bool loadMapData(Map *map, U4FILE *uf, Symbol borderTile) {
     size_t chunkLen;
     uint8_t* chunk;
     uint8_t* cp;
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
     bool ok = false;
 #ifdef U5_DAT
     Symbol sym_sea = SYM_UNSET;
@@ -56,39 +53,8 @@ bool loadMapData(Map *map, U4FILE *uf, Symbol borderTile) {
     chunkLen = map->chunk_width * map->chunk_height;
     chunk = new uint8_t[chunkLen];
 
-#ifdef GPU_RENDER
-    bool addBorder = false;
-    if (map->border_behavior == Map::BORDER_EXIT2PARENT && borderTile) {
-        // gpu_drawMap() always wraps the map so adding border chunks to the
-        // bottom & right edges will render these borders on all edges.
-        map->width  += map->chunk_width;
-        map->height += map->chunk_height;
-        addBorder = true;
-    }
-
-    // gpu_drawMap() requires chunk_width & chunk_height to be the same, so
-    // the size is adjusted to be square.
-    // This code assumes the width is never less than height and handles the
-    // intro 19x5 map.
-    int padRows = 0;
-    if (map->chunk_height < map->chunk_width)
-        padRows = map->chunk_width - map->chunk_height;
-
-    /* allocate the space we need for the map data */
-    map->data = new TileId[map->width * (map->height + padRows)];
-
-    if (addBorder) {
-        // Fill the entire map with borderTile.
-        TileId borderId = Tileset::findTileByName(borderTile)->id;
-        TileId* it = map->data;
-        TileId* end = it + map->width * map->height;
-        while (it != end)
-            *it++ = borderId;
-    }
-#else
     /* allocate the space we need for the map data */
     map->data = new TileId[map->width * map->height];
-#endif
 
     if (map->offset)
         u4fseek(uf, map->offset, SEEK_CUR);
@@ -101,7 +67,7 @@ bool loadMapData(Map *map, U4FILE *uf, Symbol borderTile) {
 #ifdef U5_DAT
             if (isChunkCompressed(map, ych * map->chunk_width + xch)) {
                 if (! sym_sea)
-                    sym_sea = xu4.config->intern("sea");
+                    sym_sea = tu4.config->intern("sea");
                 MapTile water = map->tileset->getByName(sym_sea)->getId();
                 for(y = 0; y < map->chunk_height; ++y) {
                     for(x = 0; x < map->chunk_width; ++x) {
@@ -129,15 +95,6 @@ bool loadMapData(Map *map, U4FILE *uf, Symbol borderTile) {
     }
     ok = true;
 
-#ifdef GPU_RENDER
-    if (padRows) {
-        // Force square chunks and clear padded rows.
-        memset(map->data + map->width * map->height, 0,
-               sizeof(TileId) * map->width * padRows);
-        map->height += padRows;
-        map->chunk_height = map->chunk_width;
-    }
-#endif
 
 cleanup:
     delete[] chunk;
@@ -174,7 +131,7 @@ static bool loadCityMap(Map *map, U4FILE *ult) {
     uint8_t* pd;
     Person* per;
     Person *people[CITY_MAX_PERSONS];
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
     bool ok = false;
 
     /* the map must be 32x32 to be read from an .ULT file */
@@ -219,7 +176,7 @@ static bool loadCityMap(Map *map, U4FILE *ult) {
     const char* err;
     int count;
 
-    err = discourse_load(&city->disc, xu4.config->confString(city->tlk_fname));
+    err = discourse_load(&city->disc, tu4.config->confString(city->tlk_fname));
     if (err)
         errorFatal(err);
 
@@ -300,7 +257,7 @@ static void initDungeonRoom(Dungeon *dng, int room) {
     cmap->music = MUSIC_COMBAT;
     cmap->type = Map::COMBAT;
     cmap->flags |= NO_LINE_OF_SIGHT;
-    cmap->tileset = xu4.config->tileset();
+    cmap->tileset = tu4.config->tileset();
 
     // Copy map data.
     size_t tcount = cmap->width * cmap->height;
@@ -313,7 +270,7 @@ static void initDungeonRoom(Dungeon *dng, int room) {
  */
 static bool loadDungeonMap(Map *map, U4FILE *uf, FILE *sav) {
     Dungeon *dungeon = dynamic_cast<Dungeon*>(map);
-    const UltimaSaveIds* usaveIds = xu4.config->usaveIds();
+    const UltimaSaveIds* usaveIds = tu4.config->usaveIds();
     unsigned int i, j;
     uint8_t* rawMap;
     size_t bytes;
@@ -480,18 +437,18 @@ bool loadMap(Map *map, FILE* sav) {
 
 #ifdef CONF_MODULE
     if (map->fname) {
-        string fname( xu4.config->confString(map->fname) );
+        string fname( tu4.config->confString(map->fname) );
         uf = u4fopen(fname);
     } else {
-        const CDIEntry* ent = xu4.config->mapFile(map->id);
+        const CDIEntry* ent = tu4.config->mapFile(map->id);
         if (ent) {
-            uf = u4fopen_stdio(xu4.config->modulePath());
+            uf = u4fopen_stdio(tu4.config->modulePath());
             u4fseek(uf, ent->offset, SEEK_SET);
         } else
             uf = NULL;
     }
 #else
-    string fname( xu4.config->confString(map->fname) );
+    string fname( tu4.config->confString(map->fname) );
     uf = u4fopen(fname);
 #endif
     if (uf) {

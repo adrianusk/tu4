@@ -10,7 +10,7 @@
 #include "discourse.h"
 #include "event.h"
 #include "u4file.h"
-#include "xu4.h"
+#include "tu4.h"
 
 #ifdef CONF_MODULE
 #include "config.h"
@@ -47,12 +47,12 @@ const char* discourse_load(Discourse* dis, const char* resource)
         const uint8_t* ub = (const uint8_t*) resource;
         dis->conv.id = CDI32(ub[0], ub[1], ub[2], ub[3]);
 
-        int32_t n = xu4.config->npcTalk(dis->conv.id);
+        int32_t n = tu4.config->npcTalk(dis->conv.id);
         if (! n)
             return "Unable to load NPC talk chunk";
 
         dis->system = DISCOURSE_XU4_TALK;
-        //UThread* ut = xu4.config->boronThread();
+        //UThread* ut = tu4.config->boronThread();
         //dis->convCount = ur_buffer(n)->used / 5;
     } else
 #endif
@@ -142,7 +142,7 @@ bool discourse_run(const Discourse* dis, uint16_t entry, Person* npc)
 #ifdef CONF_MODULE
     case DISCOURSE_XU4_TALK:
     {
-        int32_t blkN = xu4.config->npcTalk(dis->conv.id);
+        int32_t blkN = tu4.config->npcTalk(dis->conv.id);
         if (blkN) {
             talkRunBoron(dis, entry, npc);
             return true;
@@ -156,14 +156,14 @@ bool discourse_run(const Discourse* dis, uint16_t entry, Person* npc)
         const char** goods = (const char**) dis->conv.table;
         Controller noTurns;
 
-        xu4.eventHandler->pushController(&noTurns);
+        tu4.eventHandler->pushController(&noTurns);
 
 #ifdef USE_BORON
         // Make a valid Boron word! from names with spaces.
         string word(c->location->map->getName());
         replace(word.begin(), word.end(), ' ', '-');
 
-        xu4.config->scriptEvalArg("talk-to %s '%s", goods[entry], word.c_str());
+        tu4.config->scriptEvalArg("talk-to %s '%s", goods[entry], word.c_str());
 #else
         // Load and run the appropriate script.
         string ugood(goods[entry]);
@@ -176,7 +176,7 @@ bool discourse_run(const Discourse* dis, uint16_t entry, Person* npc)
 #endif
 
         pauseFollow(npc);
-        xu4.eventHandler->popController();
+        tu4.eventHandler->popController();
     }
         return true;
     }

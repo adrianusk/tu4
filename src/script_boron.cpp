@@ -418,7 +418,7 @@ CFUNC(cf_inputPlayer)
     (void) ut;
     (void) a1;
 
-    xu4.eventHandler->pushController(&cont);
+    tu4.eventHandler->pushController(&cont);
     player = cont.waitFor();
     screenCrLf();
 
@@ -440,7 +440,7 @@ CFUNC(cf_inputPlayer)
 */
 CFUNC(cf_party)
 {
-    int id = xu4.config->scriptItemId(ur_atom(a1));
+    int id = tu4.config->scriptItemId(ur_atom(a1));
     int ic = SCRIPT_ITEM_CLASS(id);
     int n = 0;
 
@@ -706,7 +706,7 @@ CFUNC(cf_addItem)
 CFUNC(cf_addItems)
 {
     int amount = ur_int(a1+1);
-    int id = xu4.config->scriptItemId(ur_atom(a1));
+    int id = tu4.config->scriptItemId(ur_atom(a1));
     int ic = SCRIPT_ITEM_CLASS(id);
     (void) ut;
 
@@ -763,7 +763,7 @@ skip_notify:
 CFUNC(cf_removeItems)
 {
     int amount = -ur_int(a1+1);
-    int id = xu4.config->scriptItemId(ur_atom(a1));
+    int id = tu4.config->scriptItemId(ur_atom(a1));
     int ic = SCRIPT_ITEM_CLASS(id);
     (void) ut;
 
