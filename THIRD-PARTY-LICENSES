@@ -1,0 +1,68 @@
+THIRD-PARTY LICENSES
+====================
+
+This file collects the licenses of third-party code incorporated into TU4.
+
+
+-------------------------------------------------------------------------------
+Playscii  (MIT License)
+-------------------------------------------------------------------------------
+
+Portions of the tu4-setup asset-conversion pipeline are ported (translated to
+C++) from Playscii, JP LeBreton's ASCII/ANSI art and game creation program.
+
+  Upstream project: https://github.com/JPLeBreton/playscii
+
+The following TU4 source files are derivative works of Playscii and carry the
+MIT license below:
+
+  src/setup/lab_color.cpp   / lab_color.h    (from Playscii lab_color.py)
+  src/setup/ega_palette.cpp / ega_palette.h  (from Playscii palette.py,
+                                               image_convert.py)
+  src/setup/png2asp.cpp     / png2asp.h      (from Playscii image_convert.py:
+                                               get_color_combos_for_block,
+                                               get_best_tile_for_block, update)
+  src/setup/image_ops.cpp   / image_ops.h    (image scaling/palettize helpers
+                                               mirroring Playscii/PIL behavior)
+
+The bundled reference copies of the relevant Playscii modules used to verify
+byte-exactness live under:
+
+  graphics/converters/png2psci/  (palette.py, charset.py, image_convert.py,
+                                  lab_color.py, batch_png2psci.py, and the
+                                  charsets/ and palettes/ assets)
+
+MIT License
+
+Copyright (c) 2014-2021 JP LeBreton
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+-------------------------------------------------------------------------------
+LZW decompressor  (GNU General Public License v2 or later)
+-------------------------------------------------------------------------------
+
+The U4 LZW decompressor reused by tu4-setup (src/lzw/lzw.c, lzw/hash.c) is:
+
+  Copyright (C) 2002  Marc Winterrowd
+
+and is distributed under the terms of the GNU General Public License, version 2
+or (at your option) any later version. See the header of src/lzw/lzw.h for the
+full notice.

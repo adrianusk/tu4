@@ -1,0 +1,64 @@
+# ============================================================================
+# tu4 .gitignore
+# ============================================================================
+
+# --- Copyrighted Ultima IV game data (NEVER redistribute) -------------------
+/ultima4/
+
+# --- Build artifacts --------------------------------------------------------
+*.o
+*.a
+*.so
+*.exe
+*.dll
+/tu4
+/src/tu4
+/src/xu4
+/src/tu4-setup
+/src/mkaspdiff
+/src/u4dec
+/src/u4enc
+/src/lzwdump
+/src/coord
+/src/dumpmap
+/src/dumpsavegame
+/src/tlkconv
+/src/u4unpackexe
+/src/.depends
+*.deb
+
+# --- Scratch / intermediate that isn't a build artifact ---------------------
+*.cpp.removed
+
+# --- Backups / scratch / editor cruft ---------------------------------------
+*.bak
+*.bak.*
+*.ori
+*.prev
+*.prev.*
+*~
+*.orig
+*.swp
+
+# --- Windows: exclude the PACKAGED output tree (built .exe/.dll + copied data).
+#     The Windows BUILD files (src/win32/*, src/Makefile.mingw) ARE tracked so
+#     a cloner can build the Windows version themselves.
+/tu4-win32/
+
+# --- Unused xu4 VGA module (7.3M PNGs/ogg/shaders; tu4 text-mode doesn't use
+#     it — the Makefile ships no .mod bundle). Audio ships as loose mid/+sound/
+#     for now; see todo.txt "support xu4 .mod files" for the future approach. ---
+/module/
+
+# ============================================================================
+# graphics/: first version ships ONLY the EGA theme.
+#   Ignore all of graphics/, then re-include graphics/EGA/ (ASP + theme
+#   font/palette only — NOT the dev PNG/psci sources or backups, and NOT the
+#   DEV-ONLY derived baselines_EGA/).
+# ============================================================================
+/graphics/*
+!/graphics/EGA/
+/graphics/EGA/*
+!/graphics/EGA/*.ASP
+!/graphics/EGA/cp437_8x8.bin
+!/graphics/EGA/palette.bin

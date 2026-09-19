@@ -1,0 +1,145 @@
+#
+# Makefile for macOS (SDL2, text-mode tu4 build)
+#
+# UNTESTED ON macOS: written on a Linux host, so it has not been
+# compiled or run on a Mac. Adjust SDL2 include/lib flags below for your
+# installation (Homebrew vs SDL2.framework) if the defaults don't match.
+#
+# tu4 is a text-mode build. Like the Linux build it uses:
+#     UI=sdl2  CONF=xml  GPU=none
+# and renders CP437 characters via SDL2 -- there are no pixel graphics
+# themes, no libpng, and no Ultima-IV.mod. The SDL2 backend source files
+# (screen_sdl2.cpp / event_sdl2.cpp / sound_sdl2.cpp) are identical to
+# the ones built on Linux; nothing in them is Linux-specific.
+#
+
+-include ../make.config
+
+# Homebrew default. For Apple-silicon Homebrew this is /opt/local or
+# /opt/homebrew; for Intel Homebrew /usr/local; for MacPorts /opt/local.
+PREFIX ?= /usr/local
+
+# Force the text-mode configuration regardless of make.config.
+UI=sdl2
+CONF=xml
+GPU=none
+
+bindir=$(PREFIX)/bin
+libdir=$(PREFIX)/lib
+datadir=$(PREFIX)/share
+resdir=$(datadir)/tu4
+
+CC=cc
+CXX=c++
+
+# --- SDL2 discovery ---------------------------------------------------
+# Default: Homebrew-installed SDL2 + SDL2_mixer, discovered via
+# sdl2-config and pkg-config. The backend #includes <SDL2/SDL.h>, so the
+# include dir must contain an "SDL2/" subdirectory (Homebrew layout).
+#
+# If you instead use SDL2.framework / SDL2_mixer.framework from
+# /Library/Frameworks, comment the two lines below and uncomment the
+# FRAMEWORK block.
+SDL_CFLAGS := $(shell sdl2-config --cflags 2>/dev/null)
+SDL_LIBS   := $(shell sdl2-config --libs 2>/dev/null) $(shell pkg-config --libs SDL2_mixer 2>/dev/null)
+
+# --- Framework alternative (uncomment to use *.framework) -------------
+# SDL_CFLAGS = -F/Library/Frameworks \
+#              -I/Library/Frameworks/SDL2.framework/Headers \
+#              -I/Library/Frameworks/SDL2_mixer.framework/Headers
+# SDL_LIBS   = -F/Library/Frameworks -framework SDL2 -framework SDL2_mixer
+# ----------------------------------------------------------------------
+
+# SDL2 provides its own Cocoa main() shim, so the old SDL 1.2 SDLMain.m
+# is not used and no longer exists in the tree.
+UIFLAGS = $(SDL_CFLAGS)
+UILIBS  = -framework Cocoa $(SDL_LIBS)
+
+FEATURES=-DHAVE_BACKTRACE=0 -DHAVE_VARIADIC_MACROS=1
+
+# Debugging (swap for the optimising line below for a release build).
+DEBUGCXXFLAGS=-ggdb
+#DEBUGCXXFLAGS=-O2
+
+# Directory for user files (settings + saves) inside the home directory.
+MACOSX_USER_FILES_PATH=/.config/tu4
+
+CXXFLAGS=$(FEATURES) -Wall -I. -Isupport $(UIFLAGS) $(shell xml2-config --cflags) \
+         -DVERSION=\"$(VERSION)\" $(DEBUGCXXFLAGS) -DNPERF -DMACOSX \
+         -DMACOSX_USER_FILES_PATH=\"$(MACOSX_USER_FILES_PATH)\" -L$(PREFIX)/lib
+CFLAGS=$(CXXFLAGS)
+LIBS=-lxml2 -lz -lpthread -lm $(UILIBS) -lobjc
+
+INSTALL=install
+
+# macOS-specific objects:
+#   osxerror.o  - Cocoa error/alert dialogs (provides errorFatal/
+#                 errorWarning bodies under -DMACOSX; required).
+# Note: osxinit.o (CFBundle Resources search path) is intentionally NOT
+# built -- tu4's main() uses chdirToExecutableDir() and relative paths
+# instead of osxInit(), and the bundle target below places resources
+# next to the binary in Contents/MacOS/ so they resolve the same way as
+# on Linux.
+OBJS=macosx/osxerror.o
+include Makefile.common
+
+macosx/osxerror.o: macosx/osxerror.mm
+	$(CXX) $(CXXFLAGS) -c -o macosx/osxerror.o macosx/osxerror.mm
+
+
+# --- Application bundle ------------------------------------------------
+bundle_name=TU4.app
+
+# Resources are copied next to the executable in Contents/MacOS/ so that
+# tu4's chdirToExecutableDir() + relative "conf/"/"graphics/" lookups
+# find them (matching the Linux run-from-directory behavior).
+bundle: $(MAIN)
+	mkdir -p $(bundle_name)/Contents/MacOS
+	mkdir -p $(bundle_name)/Contents/Resources
+	mkdir -p $(bundle_name)/Contents/MacOS/conf/dtd
+	mkdir -p $(bundle_name)/Contents/MacOS/conf/themes
+	mkdir -p $(bundle_name)/Contents/MacOS/graphics/U5-EGA
+	mkdir -p $(bundle_name)/Contents/MacOS/graphics/EGA
+	mkdir -p $(bundle_name)/Contents/MacOS/mid
+	mkdir -p $(bundle_name)/Contents/MacOS/sound
+	echo "APPL????" > $(bundle_name)/Contents/PkgInfo
+	cp macosx/Info.plist $(bundle_name)/Contents
+	cp ../graphics/tu4.png $(bundle_name)/Contents/Resources/tu4.png
+	cp ../conf/*.xml           $(bundle_name)/Contents/MacOS/conf
+	cp ../conf/sigdata.txt     $(bundle_name)/Contents/MacOS/conf
+	cp ../conf/dtd/*.dtd       $(bundle_name)/Contents/MacOS/conf/dtd
+	cp ../conf/themes/U5-EGA.xml ../conf/themes/EGA.xml $(bundle_name)/Contents/MacOS/conf/themes
+	cp ../graphics/U5-EGA/*.ASP ../graphics/U5-EGA/cp437_8x8.bin ../graphics/U5-EGA/palette.bin $(bundle_name)/Contents/MacOS/graphics/U5-EGA
+	cp ../graphics/EGA/*.ASP ../graphics/EGA/cp437_8x8.bin ../graphics/EGA/palette.bin $(bundle_name)/Contents/MacOS/graphics/EGA
+	cp ../graphics/tu4.bmp     $(bundle_name)/Contents/MacOS/graphics/tu4.bmp
+	cp ../mid/*.mid ../mid/*.it $(bundle_name)/Contents/MacOS/mid
+	cp ../sound/*.ogg          $(bundle_name)/Contents/MacOS/sound
+	cp $(MAIN) $(bundle_name)/Contents/MacOS/
+
+
+# Install resources system-wide (mirrors the Linux install:: layout) and
+# put the binary on PATH. This is the non-bundle alternative to `bundle`.
+install::
+	$(INSTALL) -d $(bindir)
+	$(INSTALL) -m 755 $(MAIN) $(bindir)/$(MAIN)
+	$(INSTALL) -d $(resdir)/conf $(resdir)/conf/dtd $(resdir)/conf/themes \
+		$(resdir)/graphics/U5-EGA $(resdir)/graphics/EGA \
+		$(resdir)/mid $(resdir)/sound
+	$(INSTALL) -m 644 ../conf/*.xml $(resdir)/conf
+	$(INSTALL) -m 644 ../conf/sigdata.txt $(resdir)/conf
+	$(INSTALL) -m 644 ../conf/dtd/*.dtd $(resdir)/conf/dtd
+	$(INSTALL) -m 644 ../conf/themes/U5-EGA.xml ../conf/themes/EGA.xml $(resdir)/conf/themes
+	$(INSTALL) -m 644 ../graphics/U5-EGA/*.ASP ../graphics/U5-EGA/cp437_8x8.bin ../graphics/U5-EGA/palette.bin $(resdir)/graphics/U5-EGA
+	$(INSTALL) -m 644 ../graphics/EGA/*.ASP ../graphics/EGA/cp437_8x8.bin ../graphics/EGA/palette.bin $(resdir)/graphics/EGA
+	$(INSTALL) -m 644 ../graphics/tu4.bmp $(resdir)/graphics/tu4.bmp
+	$(INSTALL) -m 644 ../mid/*.mid ../mid/*.it $(resdir)/mid
+	$(INSTALL) -m 644 ../sound/*.ogg $(resdir)/sound
+
+# Copy the bundle into /Applications.
+install-bundle: bundle
+	cp -r $(bundle_name) /Applications/
+
+clean-local:
+	-rm -rf $(bundle_name)
+
+-include .depends

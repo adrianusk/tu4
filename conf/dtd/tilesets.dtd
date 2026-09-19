@@ -1,0 +1,3 @@
+<!-- $Id$ -->
+
+<!ELEMENT tilesets (tilemap*, tileset*) >

@@ -1,0 +1,3 @@
+<!-- $Id$ -->
+
+<!ELEMENT egaPalette ( color+ ) >

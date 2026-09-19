@@ -1,0 +1,47 @@
+<!DOCTYPE graphics SYSTEM "dtd/graphics.dtd">
+<!--
+    graphics-text.xml  (aggregator)
+    Text-mode 80x50, 16-color (EGA), CP437 charset.
+    All images are ASP files (BSAVE format: 7-byte header + char/attr pairs).
+    Tiles are 4x4 characters (32 bytes each) stored in MYSHAPES.ASP.
+
+    Theme asset data lives in per-theme fragment files under themes/.
+    Each fragment (themes/NAME.xml) is wrapped in a themefrag root and
+    contributes exactly one imageset name="NAME" and one matching
+    tileanimset name="NAME".  They are spliced into graphics below via
+    XInclude selecting the wrapper's children: xpointer(/themefrag/*).
+
+    Shipped base themes: U5-EGA (default) and EGA, both standalone.
+    PC9801 is reserved for a future add-on module (themes/PC9801.xml exists
+    but is intentionally NOT included here); the base package does not ship
+    its assets. To enable it, install graphics/PC9801/ and add an
+    xi:include line for themes/PC9801.xml.
+-->
+<graphics>
+    <!--
+        Shared, theme-independent viewport geometry for the gem / peer
+        views. Coordinates are in character cells (1,1 = upper left).
+        Theme-specific gem appearance (fonts, colours, block glyphs) comes
+        from each theme's own CHARSET.ASP / GEM.ASP, not from here.
+
+        Map area:     cols 3-46,  rows 3-46  (44x44 chars = 11x11 tiles at 4x4)
+        Stats area:   cols 49-78, rows 3-18  (30x16 chars)
+        Stats2 area:  cols 49-78, rows 21-22 (30x2 chars)
+        Message area: cols 49-78, rows 25-48 (30x24 chars)
+    -->
+    <layout type="gem" name="Standard">
+        <tileshape width="1" height="1"/>
+        <viewport x="8" y="8" width="32" height="32"/>
+    </layout>
+
+    <layout type="dungeon_gem" name="Standard">
+        <tileshape width="1" height="1"/>
+        <viewport x="13" y="13" width="22" height="22"/>
+    </layout>
+
+    <!-- Base themes (standalone, no extends). -->
+    <xi:include xmlns:xi="http://www.w3.org/2003/XInclude"
+                href="themes/U5-EGA.xml" xpointer="xpointer(/themefrag/*)"/>
+    <xi:include xmlns:xi="http://www.w3.org/2003/XInclude"
+                href="themes/EGA.xml" xpointer="xpointer(/themefrag/*)"/>
+</graphics>

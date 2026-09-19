@@ -1,0 +1,81 @@
+
+<Loaded subscript 'vendor' where id='Buccaneers Den' for script 'Guild'>
+
+
+
+
+Ztats: equipment
+
+{owner} == "One Eyed Willey"
+{owner} == "One Eyed Willey"
+{name} == "Pirate's Guild"
+Output: 
+====================
+
+Avast ye mate! Shure ye wishes to buy from ol'
+One Eyed Willey?
+
+One Eyed Willey says: Welcome to Pirate's Guild.
+Like to see my goods? 
+====================
+
+Input: choice
+{owner} == "One Eyed Willey"
+{show_inventory:show_item} == 
+{toupper({choice})} == 
+{choice} == "a""A"
+{name} == "Torches"
+Output: 
+====================
+A-Torches
+====================
+
+{toupper({choice})} == 
+{choice} == "b""B"
+{name} == "Magic Gems"
+Output: 
+====================
+B-Magic Gems
+====================
+
+{toupper({choice})} == 
+{choice} == "c""C"
+{name} == "Magic Keys"
+Output: 
+====================
+C-Magic Keys
+====================
+"A-Torches
+B-Magic Gems
+C-Magic Keys"
+Output: 
+====================
+
+One Eyed Willey says: Good Mate!
+Ya see I gots:
+A-Torches
+B-Magic Gems
+C-Magic Keys
+Wat'l it be? 
+====================
+
+{inventory_choices} == "abcd"
+Input: choice
+Redirected to <bye .../>
+
+
+{owner} == "One Eyed Willey"
+Output: 
+====================
+
+One Eyed Willey says: See ya matie!
+
+====================
+
+
+
+
+Ztats: party
+
+
+<End script>

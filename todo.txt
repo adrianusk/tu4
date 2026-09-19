@@ -1,0 +1,188 @@
+tu4-1.0 TODO
+=============
+
+Outstanding
+===========
+
+Audio: support xu4 `.mod` soundtrack/module files (FUTURE, ~3-5 days)
+---------------------------------------------------------------------
+Goal: instead of shipping loose `mid/`+`sound/` files in the repo, let tu4
+mount an existing xu4 `.mod` (e.g. Ultima-IV.mod, U4-Hurin.mod,
+U4-PiecesOf8Bit.mod) and stream music/SFX from it — and link to those `.mod`
+downloads from the website (so no audio is redistributed in the repo).
+
+FINDINGS (from reading xu4-1.4.3 source, 2026-09-19):
+- A `.mod` is a **CDI package** (custom binary archive). Magic bytes
+  `DA 7A 70 00` + `78 75 34 02` ("xu4" v2). Defined by `src/support/cdi.{h,c}`
+  in xu4; entries are indexed by FourCC app-id and a filename index.
+- xu4-1.4.3 loads audio via `sound_faun.cpp`: `config_musicFile(id)` /
+  `config_soundFile(id)` return a **`CDIEntry*`** (offset+length inside the
+  mounted `.mod`), and the **Faun** audio library streams from that offset.
+  Module mounting is in `src/module.c` (457 lines) + `src/support/cdi.c`.
+- tu4 differs: audio is **SDL2_mixer** (`Mix_LoadMUS`/`Mix_LoadWAV` from a
+  file PATH, `sound_sdl2.cpp`), and config is **XML** (`conf/music.xml`,
+  `conf/sound.xml`) with loose filenames (`.it`/`.mid` music, `.ogg` SFX).
+- HEAD START: **tu4 ALREADY has `src/support/cdi.c` (171 lines)** — the same
+  CDI reader — so the archive format reader is present.
+- CONFIRMED (2026-09-19): the standard `Ultima-IV.mod` shipped with EVERY xu4
+  binary release (checked xu4-1.0beta5 AND xu4-1.4.3) packs ALL audio (music +
+  SFX) as **Ogg Vorbis streams** (~1750 `OggS` signatures; no .it/.mid/.wav).
+  SDL2_mixer plays Ogg natively, so the SDL_RWops bridge needs NO format
+  conversion. So tu4 could consume the SAME `Ultima-IV.mod` xu4 distributes,
+  and the website links to it (no audio redistributed in the tu4 repo).
+- CDI FORMAT VERSION: magic is `DA 7A 70 00` + `78 75 34 vv` where vv is the
+  version — **beta5 = v1 (`xu4\x01`), 1.4.3 = v2 (`xu4\x02`)**. The module
+  reader must handle the target version(s); tu4's cdi.c version must match.
+
+EFFORT ESTIMATE (~3-5 days), no Faun needed:
+1. Port `module.c` mounting (open .mod, read CDI dir, index by name/app-id),
+   adapting xu4's — reuse tu4's existing cdi.c. (~1-2d)
+2. Load audio from a CDI entry via **SDL_RWops**: wrap the .mod file region as
+   an SDL_RWops and use `Mix_LoadMUS_RW` / `Mix_LoadWAV_RW` (avoids swapping
+   the SDL2_mixer backend for Faun). (~0.5-1d)
+3. Resolve tu4's music.xml/sound.xml track names -> CDI entries in the mounted
+   module. (~0.5-1d)
+4. Reconcile format/filenames: .mod packages `.ogg` streams; tu4 music uses
+   `.it`/`.mid` — map tu4's track list to the module's stream names. (~0.5d)
+5. (Optional) module-selection UI like xu4's Game Module Browser.
+
+Until then: the repo ships tu4's loose `mid/`+`sound/` (xu4-GPL assets; what
+the SDL2_mixer path loads today).
+
+Code Cleanup
+-------------
+- screenDrawImageInMapArea() (src/screen.cpp) could be rewritten to use
+  Image::drawSubRect() (which already handles transparency via the
+  Image::transparent flag) instead of manually iterating the ASP data.
+  This would unify the transparency logic with dungeonview's approach.
+  (OPTIONAL refactor — current code works; not urgent.)
+
+
+Completed
+=========
+
+Code Cleanup — includes/stubs (DONE 2026-09-02)
+-----------------------------------------------
+- Removed 2 verified-unused #include directives (compiler + direct-symbol
+  evidence; both were tu4-added, absent from xu4):
+    * src/intro.cpp   : removed #include "tileanim.h"  (no TileAnim/ATYPE_/
+      g_tileTransparent symbols used; xu4's intro.cpp doesn't include it).
+    * src/tileview.cpp: removed #include "utils.h"      (no AdjustValue/
+      xu4_random/etc. symbols used).
+  Rebuilt clean (make, exit 0) and relinked; binary copied. Only pre-existing
+  -Wformat-security warnings in intro.cpp remain (unrelated to this change).
+- METHOD: a naive "remove-and-recompile" test flags many includes as
+  removable, but almost all are FALSE POSITIVES — tu4's headers transitively
+  pull each other in, so the TU still compiles even when a directly-used
+  symbol's header is dropped. Verified each candidate against DIRECT symbol
+  usage before removing. Examples kept because they ARE directly used
+  (despite compiling clean when removed): screen.cpp <vector>/<utility>/
+  <string> (uses vector<>/std::pair), dungeonview.cpp savegame.h
+  (c->saveGame->orientation) + config.h (xu4.config->intern), tileview.cpp
+  config.h (xu4.config->tileset/usaveIds) + savegame.h.
+- screenRedrawMapArea() (src/screen.cpp): VERIFIED — NOT a stray port stub.
+  xu4 defines it as `xu4.game->mapArea.update()`; in tu4 text mode that
+  repaint is handled by screenUpdate, so the empty body (with its comment)
+  is the correct text-mode adaptation. Kept the function AND all 5 codex.cpp
+  call sites to preserve xu4's structure (steering rules 1 & 5).
+
+Dungeon 3D View (DONE)
+----------------------
+- Distance-based scaling implemented following xu4's VGA scale tables
+  (NOT the earlier proposed 8x8/4x4/2x2/1x1 scheme). Effective layout:
+    EGA theme:   dist 0 = 16x16 (DUNGOBJ0), dist 1 = 8x8
+                 (DUNGNPC1 NPCs / DUNGOBJ1 objects), dist 2 = 4x4
+                 MYSHAPES fallthrough, dist 3+ = not drawn.
+    Non-EGA:     dist 0-1 = 16x16 (DUNGOBJ0), dist 2 = 8x8
+                 (DUNGNPC1/DUNGOBJ1), dist 3+ = 4x4 fallthrough.
+  All drawInDungeon() tiles render: chest, ceiling/floor hole,
+  magic orb, fountain, altar, corridor monsters (rat, bat, spider,
+  ghost, slime, troll, gremlin, reaper, insect swarm, gazer, phantom),
+  and the fields.
+- Object vs monster art split into DUNGOBJ0/DUNGOBJ1 (objects) and
+  DUNGNPC1 (monsters). No NPC art at distance 0 — combat triggers
+  before a creature would render there.
+- Tiled wall/field rendering DONE (2026-08-10): poison/energy/fire/
+  sleep fields fill the corridor opening with the repeated GEM.ASP
+  glyph at xu4 EGA lscale fill sizes (dist 0 = 22x22 ... dist 4 = 1x1).
+- Scroll animation advanced inline in the 3D view (fountain, fields,
+  water) since it does not go through TileAnimTransform::draw().
+- 4x4 MYSHAPES fallthrough honors the tile's image= override
+  (fountain -> tile_shallows, etc.), fixing the "scrolling giant".
+
+Dungeon General (DONE)
+----------------------
+- Room combat uses the same 11x11 tile view as overworld/town —
+  verified. No outstanding items.
+
+Assets Completed (tested in-game)
+---------------------------------
+- Codex endgame / virtue screens: all 12 remaining native-44x44 ASPs
+  produced (2026-09-02) — KEY7, HONESTY, COMPASSN, VALOR, JUSTICE,
+  SACRIFIC, HONOR, SPIRIT, HUMILITY, TRUTH, LOVE, COURAGE. (STONCRCL
+  was already present.) Now all 13 codex screens exist in graphics/U5-EGA/.
+    * Source PNGs authored as CUMULATIVE composites (each file = full
+      image at that stage; no runtime transparency needed) in
+      graphics/u5ega/imgsrc/.
+    * Pipeline used (all batch):
+        1. PNG -> .psci:  cd /home/adrianus/playscii &&
+             python3 batch_png2psci.py \
+               graphics/u5ega/imgsrc graphics/u5ega/psciout --overwrite
+             (headless; defaults 44x44, charset dos40, palette ega —
+              reuses Playscii's own ImageConverter so output matches
+              the in-editor "import bitmap").
+        2. .psci -> .ASP: python3 graphics/converters/psci2asp_44.py
+             graphics/u5ega/psciout   (batch; existing ladder/dungeon
+             ASPs skipped since they already had .ASP — no --overwrite).
+        3. Render check: python3 graphics/converters/aspview.py <dir> --png-dir
+             /tmp/codex_png --scale 1  -> visually verified white-on-black
+             line art with correct cumulative build-up (key -> triangle
+             -> star of david -> circled sigil -> 3 inner circles).
+        4. Copied the 12 .ASP into graphics/U5-EGA/ (each 3879 bytes =
+             7-byte header + 44*44*2 payload).
+    * XML + loader already ready: conf/graphics-text.xml declares all 12
+      (names key/honesty..courage, stoncrcl) with
+      filetype="image/x-asp-screen"; codex.cpp references them by the
+      same BKGD_* symbol names as xu4; the native-44x44 map-area branch
+      (getCols()==44) draws them 1:1. NO code or XML changes were needed.
+    * TESTED 2026-09-02 — ran the full codex endgame in-game (reached
+      Abyss L8 via the Ctrl-Alt-C debug teleport). All screens render
+      correctly in sequence: KEY7 (3-part key) -> the 8 virtue images
+      as each virtue is named -> TRUTH/LOVE/COURAGE for the 3 principles
+      -> STONCRCL at the final endgame step. Full asset set verified.
+- Rune / shrine vision screens: RUNE_0.ASP through RUNE_5.ASP converted
+  from U5-EGA PNGs. These 6 files cover all 8 shrine visions + infinity
+  (xu4 reuses files across virtues). Mapping in graphics-text.xml
+  matches xu4's EGA theme:
+    infinity -> RUNE_5.ASP, rune1 -> RUNE_1.ASP, rune2 -> RUNE_2.ASP,
+    rune3 -> RUNE_0.ASP, rune4 -> RUNE_1.ASP, rune5 -> RUNE_2.ASP,
+    rune6 -> RUNE_1.ASP, rune7 -> RUNE_3.ASP, rune8 -> RUNE_4.ASP
+  TESTED 2026-08-15 — all 8 shrine visions verified working.
+- screenDrawImageInMapArea() (src/screen.cpp) now supports BOTH source
+  layouts (updated 2026-08-30):
+    * Native 44x44 map-area ASP (3872-byte payload): copied 1:1 into the
+      map area, no border offset, stride 44. Detected by getCols()==44.
+    * Legacy full-screen 80x50 ASP: original xu4 drawSubRect behavior
+      (extract the 44x44 viewport at BORDER_WIDTH/HEIGHT, stride 80).
+- Rune vision migration to NATIVE 44x44 (DONE 2026-08-30):
+    * RUNE_0.ASP..RUNE_4.ASP in graphics/U5-EGA/ replaced with native
+      44x44 versions (were 80x50). Old files kept as *.ASP.80x50.bak.
+      RUNE_5.ASP and STONCRCL.ASP were already 44x44.
+    * Source .psci converted with graphics/converters/psci2asp_44.py (lossless).
+    * Code changes to support native 44x44 map-area images:
+        - src/image.cpp createFromAsp(): size==44*44*2 sets w=h=44, cols=44.
+        - src/imageloader.cpp loadImage_aspScreen(): do NOT pad a 3872-byte
+          payload up to 8000 (only pad true full-screen images).
+        - src/screen.cpp screenDrawImageInMapArea(): native vs legacy branch
+          (see above).
+      Built clean, binary copied. Index-range verified (native max index
+      3870 < 3872; old logic would have needed 7290 -> misalignment).
+      NOT yet tested in a live shrine session — verify visions in-game.
+- Ladder dungeon-tile pink bug fixed (2026-08-30):
+    graphics/u5ega/psciout/ladderdown0.psci and ladderup0.psci had bg
+    index 14 (EGA 13 pink) and fg index 14; remapped bg 14->1 (black) and
+    fg 14->16 (white) to match the white-on-black reference PNGs.
+    Regenerated the .ASP (psci2asp_44.py) and /tmp PNGs. Backups: *.psci.bak.
+    NOTE: only the distance-0 frames were fixed — check the other distance
+    frames (1/2/3) and the _side / updown variants for the same pink issue.
+- STONCRCL.ASP (final codex endgame screen) present.

@@ -1,0 +1,544 @@
+/*
+ * $Id$
+ */
+
+#include <cstring>
+
+#include "stats.h"
+
+#include "config.h"
+#include "debug.h"
+#include "party.h"
+#include "spell.h"
+#include "weapon.h"
+#include "u4.h"
+#include "xu4.h"
+
+/**
+ * StatsArea class implementation
+ */
+StatsArea::StatsArea() :
+    title(STATS_AREA_X * CHAR_WIDTH, 0 * CHAR_HEIGHT, STATS_AREA_WIDTH, 1),
+    mainArea(STATS_AREA_X * CHAR_WIDTH, STATS_AREA_Y * CHAR_HEIGHT, STATS_AREA_WIDTH, STATS_AREA_HEIGHT),
+    summary(STATS_AREA_X * CHAR_WIDTH, (STATS_AREA_Y + STATS_AREA_HEIGHT + 2) * CHAR_HEIGHT, STATS_AREA_WIDTH, 1),
+    view(STATS_PARTY_OVERVIEW)
+{
+    // Generate a formatted string for each menu item,
+    // and then add the item to the menu.  The Y value
+    // for each menu item will be filled in later.
+    for (int count=0; count < 8; count++)
+    {
+        char outputBuffer[16];
+        snprintf(outputBuffer, sizeof(outputBuffer), "-%-11s%%s", getReagentName((Reagent)count));
+        reagentsMixMenu.add(count, new IntMenuItem(outputBuffer, 1, 0, -1, (int *)c->party->getReagentPtr((Reagent)count), 0, 99, 1, MENU_OUTPUT_REAGENT));
+    }
+
+    listenerId = gs_listen(1<<SENDER_PARTY | 1<<SENDER_AURA | 1<<SENDER_MENU,
+                           statsNotice, this);
+}
+
+StatsArea::~StatsArea() {
+    gs_unplug(listenerId);
+}
+
+void StatsArea::setView(StatsView view) {
+    this->view = view;
+    update();
+}
+
+/**
+ * Sets the stats item to the previous in sequence.
+ */
+void StatsArea::prevItem() {
+    view = (StatsView)(view - 1);
+    if (view < STATS_CHAR1)
+        view = STATS_MIXTURES;
+    if (view <= STATS_CHAR8 && (view - STATS_CHAR1 + 1) > c->party->size())
+        view = (StatsView) (STATS_CHAR1 - 1 + c->party->size());
+    update();
+}
+
+/**
+ * Sets the stats item to the next in sequence.
+ */
+void StatsArea::nextItem() {
+    view = (StatsView)(view + 1);
+    if (view > STATS_MIXTURES)
+        view = STATS_CHAR1;
+    if (view <= STATS_CHAR8 && (view - STATS_CHAR1 + 1) > c->party->size())
+        view = STATS_WEAPONS;
+    update();
+}
+
+/**
+ * Update the stats (ztats) box on the upper right of the screen.
+ */
+void StatsArea::update(bool avatarOnly) {
+    clear();
+
+    /*
+     * update the upper stats box
+     */
+    switch(view) {
+    case STATS_PARTY_OVERVIEW:
+        showPartyView(avatarOnly);
+        break;
+    case STATS_CHAR1:
+    case STATS_CHAR2:
+    case STATS_CHAR3:
+    case STATS_CHAR4:
+    case STATS_CHAR5:
+    case STATS_CHAR6:
+    case STATS_CHAR7:
+    case STATS_CHAR8:
+        showPlayerDetails();
+        break;
+    case STATS_WEAPONS:
+        showWeapons();
+        break;
+    case STATS_ARMOR:
+        showArmor();
+        break;
+    case STATS_EQUIPMENT:
+        showEquipment();
+        break;
+    case STATS_ITEMS:
+        showItems();
+        break;
+    case STATS_REAGENTS:
+        showReagents();
+        break;
+    case STATS_MIXTURES:
+        showMixtures();
+        break;
+    case MIX_REAGENTS:
+        showReagents(true);
+        break;
+    }
+
+    /*
+     * update the lower stats box (food, gold, etc.)
+     */
+    if (c->transportContext == TRANSPORT_SHIP)
+        summary.textAt(0, 0, "F:%04d", c->saveGame->food / 100);
+    else
+        summary.textAt(0, 0, "F:%04d", c->saveGame->food / 100);
+
+    if (c->transportContext == TRANSPORT_SHIP)
+        summary.textAt(STATS_AREA_WIDTH - 6, 0, "SH:%02d", c->saveGame->shiphull);
+    else
+        summary.textAt(STATS_AREA_WIDTH - 6, 0, "G:%04d", c->saveGame->gold);
+
+    statsNotice(SENDER_AURA, &c->aura, this);
+
+    redraw();
+}
+
+void StatsArea::statsNotice(int sender, void* eventData, void* user) {
+    StatsArea* sa = (StatsArea*) user;
+
+    if (sender == SENDER_PARTY) {
+        sa->update();   /* do a full update */
+    }
+    else if (sender == SENDER_AURA) {
+        Aura* aura = (Aura*) eventData;
+        unsigned char mask = 0xff;
+        for (int i = 0; i < VIRT_MAX; i++) {
+            if (c->saveGame->karma[i] == 0)
+                mask &= ~(1 << i);
+        }
+
+        switch (aura->getType()) {
+        case Aura::NONE:
+            sa->summary.drawCharMasked(0, STATS_AREA_WIDTH/2, 0, mask);
+            break;
+        case Aura::HORN:
+            sa->summary.drawChar(CHARSET_REDDOT, STATS_AREA_WIDTH/2, 0);
+            break;
+        case Aura::JINX:
+            sa->summary.drawChar('J', STATS_AREA_WIDTH/2, 0);
+            break;
+        case Aura::NEGATE:
+            sa->summary.drawChar('N', STATS_AREA_WIDTH/2, 0);
+            break;
+        case Aura::PROTECTION:
+            sa->summary.drawChar('P', STATS_AREA_WIDTH/2, 0);
+            break;
+        case Aura::QUICKNESS:
+            sa->summary.drawChar('Q', STATS_AREA_WIDTH/2, 0);
+            break;
+        }
+
+        sa->summary.update();
+    }
+    else if (sender == SENDER_MENU) {
+        const Menu* menu = ((MenuEvent*) eventData)->menu;
+        if (menu == &sa->reagentsMixMenu)
+            sa->update();   /* do a full update */
+    }
+}
+
+void StatsArea::highlightPlayer(int player) {
+    ASSERT(player < c->party->size(), "player number out of range: %d", player);
+    mainArea.highlight(0, player * 2, STATS_AREA_WIDTH, 1);
+#ifdef IOS
+    U4IOS::updateActivePartyMember(player);
+#endif
+}
+
+void StatsArea::clear() {
+    for (int i = 0; i < STATS_AREA_WIDTH; i++)
+        title.drawChar(CHARSET_HORIZBAR, i, 0);
+
+    mainArea.clear();
+    summary.clear();
+}
+
+/**
+ * Redraws the entire stats area
+ */
+void StatsArea::redraw() {
+    title.update();
+    mainArea.update();
+    summary.update();
+}
+
+/**
+ * Sets the title of the stats area.
+ */
+void StatsArea::setTitle(const string &s) {
+    int titleStart = (STATS_AREA_WIDTH / 2) - ((s.length() + 2) / 2);
+    title.textAt(titleStart, 0, "%c%s%c", 16, s.c_str(), 17);
+}
+
+/**
+ * The basic party view.
+ */
+void StatsArea::showPartyView(bool avatarOnly) {
+    const char *nameFormat = "%d%c%-9.8s";
+    char hpBuf[8];
+
+    PartyMember *p = NULL;
+    int activePlayer = c->party->getActivePlayer();
+
+    ASSERT(c->party->size() <= 8, "party members out of range: %d", c->party->size());
+
+    if (!avatarOnly) {
+        for (int i = 0; i < c->party->size(); i++) {
+            p = c->party->member(i);
+            mainArea.textAt(0, i * 2, nameFormat, i+1, (i==activePlayer) ? CHARSET_BULLET : '-', p->getName().c_str());
+            snprintf(hpBuf, sizeof(hpBuf), "%3d%s", p->getHp(), mainArea.colorizeStatus(p->getStatus()).c_str());
+            mainArea.textAt(STATS_AREA_WIDTH - (int)strlen(hpBuf), i * 2, "%s", hpBuf);
+        }
+    }
+    else {
+        p = c->party->member(0);
+        mainArea.textAt(0, 0, nameFormat, 1, (activePlayer==0) ? CHARSET_BULLET : '-', p->getName().c_str());
+        snprintf(hpBuf, sizeof(hpBuf), "%3d%s", p->getHp(), mainArea.colorizeStatus(p->getStatus()).c_str());
+        mainArea.textAt(STATS_AREA_WIDTH - (int)strlen(hpBuf), 0, "%s", hpBuf);
+    }
+}
+
+/**
+ * The individual character view.
+ */
+void StatsArea::showPlayerDetails() {
+    int player = view - STATS_CHAR1;
+
+    ASSERT(player < 8, "character number out of range: %d", player);
+
+    PartyMember *p = c->party->member(player);
+    setTitle(p->getName());
+    int ox = 7;  // offset to center content in wider area
+    mainArea.textAt(ox, 0, "%c             %c", p->getSex(), p->getStatus());
+    string classStr = getClassName(p->getClass());
+    int classStart = ox + (15 / 2) - (classStr.length() / 2);
+    mainArea.textAt(classStart, 0, "%s", classStr.c_str());
+    mainArea.textAt(ox, 4, " MP:%02d  LV:%d", p->getMp(), p->getRealLevel());
+    mainArea.textAt(ox, 6, "STR:%02d  HP:%04d", p->getStr(), p->getHp());
+    mainArea.textAt(ox, 8, "DEX:%02d  HM:%04d", p->getDex(), p->getMaxHp());
+    mainArea.textAt(ox, 10, "INT:%02d  EX:%04d", p->getInt(), p->getExp());
+    mainArea.textAt(ox, 12, "W:%s", p->getWeapon()->getName());
+    mainArea.textAt(ox, 14, "A:%s", p->getArmor()->getName());
+}
+
+/**
+ * Weapons in inventory.
+ */
+void StatsArea::showWeapons() {
+    setTitle("Weapons");
+
+    int line = 0;
+    int col = 0;
+    mainArea.textAt(0, line, "A-%s", xu4.config->weapon(WEAP_HANDS)->getName());
+    line += 2;
+    for (int w = WEAP_HANDS + 1; w < WEAP_MAX; w++) {
+        int n = c->saveGame->weapons[w];
+        if (n >= 100)
+            n = 99;
+        if (n >= 1) {
+            const char *format = (n >= 10) ? "%c%d-%s" : "%c-%d-%s";
+
+            mainArea.textAt(col, line, format, w - WEAP_HANDS + 'A', n, xu4.config->weapon((WeaponType) w)->getAbbrev());
+            line += 2;
+            if (line >= (STATS_AREA_HEIGHT)) {
+                line = 0;
+                col += 8;
+            }
+        }
+    }
+}
+
+/**
+ * Armor in inventory.
+ */
+void StatsArea::showArmor() {
+    setTitle("Armour");
+
+    int line = 0;
+    mainArea.textAt(0, line, "A  -No Armour");
+    line += 2;
+    for (int a = ARMR_NONE + 1; a < ARMR_MAX; a++) {
+        if (c->saveGame->armor[a] > 0) {
+            const char *format = (c->saveGame->armor[a] >= 10) ? "%c%d-%s" : "%c-%d-%s";
+
+            mainArea.textAt(0, line, format, a - ARMR_NONE + 'A',
+                    c->saveGame->armor[a],
+                    xu4.config->armor((ArmorType) a)->getName());
+            line += 2;
+        }
+    }
+}
+
+/**
+ * Equipment: touches, gems, keys, and sextants.
+ */
+void StatsArea::showEquipment() {
+    setTitle("Equipment");
+
+    int line = 0;
+    mainArea.textAt(0, line, "%2d Torches", c->saveGame->torches); line += 2;
+    mainArea.textAt(0, line, "%2d Gems", c->saveGame->gems); line += 2;
+    mainArea.textAt(0, line, "%2d Keys", c->saveGame->keys); line += 2;
+    if (c->saveGame->sextants > 0)
+        mainArea.textAt(0, line, "%2d Sextants", c->saveGame->sextants);
+}
+
+/**
+ * Items: runes, stones, and other miscellaneous quest items.
+ */
+void StatsArea::showItems() {
+    int i, j;
+    char buffer[17];
+
+    setTitle("Items");
+
+    int line = 0;
+    if (c->saveGame->stones != 0) {
+        j = 0;
+        for (i = 0; i < 8; i++) {
+            if (c->saveGame->stones & (1 << i))
+                buffer[j++] = getStoneName((Virtue) i)[0];
+        }
+        buffer[j] = '\0';
+        mainArea.textAt(0, line, "Stones:%s", buffer);
+        line += 2;
+    }
+    if (c->saveGame->runes != 0) {
+        j = 0;
+        for (i = 0; i < 8; i++) {
+            if (c->saveGame->runes & (1 << i))
+                buffer[j++] = getVirtueName((Virtue) i)[0];
+        }
+        buffer[j] = '\0';
+        mainArea.textAt(0, line, "Runes:%s", buffer);
+        line += 2;
+    }
+    if (c->saveGame->items & (ITEM_CANDLE | ITEM_BOOK | ITEM_BELL)) {
+        buffer[0] = '\0';
+        if (c->saveGame->items & ITEM_BELL) {
+            strcat(buffer, getItemName(ITEM_BELL));
+            strcat(buffer, " ");
+        }
+        if (c->saveGame->items & ITEM_BOOK) {
+            strcat(buffer, getItemName(ITEM_BOOK));
+            strcat(buffer, " ");
+        }
+        if (c->saveGame->items & ITEM_CANDLE) {
+            strcat(buffer, getItemName(ITEM_CANDLE));
+            buffer[15] = '\0';
+        }
+        mainArea.textAt(0, line, "%s", buffer);
+        line += 2;
+    }
+    if (c->saveGame->items & (ITEM_KEY_C | ITEM_KEY_L | ITEM_KEY_T)) {
+        j = 0;
+        if (c->saveGame->items & ITEM_KEY_T)
+            buffer[j++] = getItemName(ITEM_KEY_T)[0];
+        if (c->saveGame->items & ITEM_KEY_L)
+            buffer[j++] = getItemName(ITEM_KEY_L)[0];
+        if (c->saveGame->items & ITEM_KEY_C)
+            buffer[j++] = getItemName(ITEM_KEY_C)[0];
+        buffer[j] = '\0';
+        mainArea.textAt(0, line, "3 Part Key:%s", buffer);
+        line += 2;
+    }
+    if (c->saveGame->items & ITEM_HORN) {
+        mainArea.textAt(0, line, "%s", getItemName(ITEM_HORN));
+        line += 2;
+    }
+    if (c->saveGame->items & ITEM_WHEEL) {
+        mainArea.textAt(0, line, "%s", getItemName(ITEM_WHEEL));
+        line += 2;
+    }
+    if (c->saveGame->items & ITEM_SKULL) {
+        mainArea.textAt(0, line, "%s", getItemName(ITEM_SKULL));
+        line += 2;
+    }
+}
+
+/**
+ * Unmixed reagents in inventory.
+ */
+void StatsArea::showReagents(bool active)
+{
+    setTitle("Reagents");
+
+    Menu::MenuItemList::iterator i;
+    int r = REAG_ASH;
+    string shortcut ("A");
+
+    reagentsMixMenu.show(&mainArea);
+
+    for (i = reagentsMixMenu.begin(); i != reagentsMixMenu.end(); i++, r++)
+    {
+        if ((*i)->isVisible())
+        {
+            // Insert the reagent menu item shortcut character
+            shortcut[0] = 'A'+r;
+            int itemY = (*i)->getY();
+            if (active)
+                mainArea.textAt(0, itemY, "%s", mainArea.colorizeString(shortcut, FG_YELLOW, 0, 1).c_str());
+            else
+                mainArea.textAt(0, itemY, "%s", shortcut.c_str());
+        }
+    }
+}
+
+/**
+ * Mixed reagents in inventory.
+ */
+void StatsArea::showMixtures() {
+    setTitle("Mixtures");
+
+    int line = 0;
+    int col = 0;
+    for (int s = 0; s < SPELL_MAX; s++) {
+        int n = c->saveGame->mixtures[s];
+        if (n >= 100)
+            n = 99;
+        if (n >= 1) {
+            mainArea.textAt(col, line, "%c-%02d", s + 'A', n);
+            line += 2;
+            if (line >= (STATS_AREA_HEIGHT)) {
+                if (col >= 10)
+                    break;
+                line = 0;
+                col += 5;
+            }
+        }
+    }
+}
+
+void StatsArea::resetReagentsMenu() {
+    Menu::MenuItemList::iterator current;
+    int i = 0,
+        row = 0;
+
+    for (current = reagentsMixMenu.begin(); current != reagentsMixMenu.end(); current++)
+    {
+        if (c->saveGame->reagents[i++] > 0)
+        {
+            (*current)->setVisible(true);
+            (*current)->setY(row);
+            row += 2;
+        }
+        else (*current)->setVisible(false);
+    }
+
+    reagentsMixMenu.reset(false);
+}
+
+/**
+ * Handles spell mixing for the Ultima V-style menu-system
+ */
+/**
+ * Redraw the reagent mixing menu without clearing the view, since the
+ * shortcut letters (A-H) are drawn separately at column 0 by
+ * showReagents() and must not be erased by a full view clear.
+ */
+void ReagentsMenuController::redrawMenu() {
+    menu->show(view);
+
+    Menu::MenuItemList::iterator i;
+    int r = REAG_ASH;
+    string shortcut("A");
+
+    for (i = menu->begin(); i != menu->end(); i++, r++) {
+        if ((*i)->isVisible()) {
+            shortcut[0] = 'A' + r;
+            int itemY = (*i)->getY();
+            view->textAt(0, itemY, "%s", view->colorizeString(shortcut, FG_YELLOW, 0, 1).c_str());
+        }
+    }
+}
+
+bool ReagentsMenuController::keyPressed(int key) {
+    switch(key) {
+    case 'a':
+    case 'b':
+    case 'c':
+    case 'd':
+    case 'e':
+    case 'f':
+    case 'g':
+    case 'h':
+        {
+            /* select the corresponding reagent (if visible) */
+            Menu::MenuItemList::iterator mi = menu->getById(key-'a');
+            if ((*mi)->isVisible()) {
+                menu->setCurrent(menu->getById(key-'a'));
+                keyPressed(U4_SPACE);
+            }
+        } break;
+    case U4_LEFT:
+    case U4_RIGHT:
+    case U4_SPACE:
+        if (menu->isVisible()) {
+            MenuItem *item = *menu->getCurrent();
+
+            /* change whether or not it's selected */
+            item->setSelected(!item->isSelected());
+
+            if (item->isSelected())
+                ingredients->addReagent((Reagent)item->getId());
+            else
+                ingredients->removeReagent((Reagent)item->getId());
+        }
+        break;
+    case U4_ENTER:
+        xu4.eventHandler->setControllerDone();
+        break;
+
+    case U4_ESC:
+        ingredients->revert();
+        xu4.eventHandler->setControllerDone();
+        break;
+
+    default:
+        return MenuController::keyPressed(key);
+    }
+
+    return true;
+}
+

@@ -1,0 +1,72 @@
+        <image name="dung0_ladderup_image" filename="PC9801/ladderup0.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung0_ladderup" x="89" y="0" width="174" height="177"/>
+        </image>
+        <image name="dung0_ladderup_side_image" filename="PC9801/ladderup0_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung0_ladderup_side" x="89" y="0" width="174" height="177"/>
+        </image>
+        <image name="dung1_ladderup_image" filename="PC9801/ladderup1.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung1_ladderup" x="128" y="80" width="97" height="97"/>
+        </image>
+        <image name="dung1_ladderup_side_image" filename="PC9801/ladderup1_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung1_ladderup_side" x="128" y="80" width="97" height="97"/>
+        </image>
+        <image name="dung2_ladderup_image" filename="PC9801/ladderup2.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung2_ladderup" x="155" y="136" width="42" height="41"/>
+        </image>
+        <image name="dung2_ladderup_side_image" filename="PC9801/ladderup2_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung2_ladderup_side" x="155" y="136" width="42" height="41"/>
+        </image>
+        <image name="dung3_ladderup_image" filename="PC9801/ladderup3.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung3_ladderup" x="169" y="164" width="12" height="13"/>
+        </image>
+        <image name="dung3_ladderup_side_image" filename="PC9801/ladderup3_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung3_ladderup_side" x="169" y="164" width="12" height="13"/>
+        </image>
+        <image name="dung0_ladderdown_image" filename="PC9801/ladderdown0.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung0_ladderdown" x="89" y="176" width="174" height="176"/>
+        </image>
+        <image name="dung0_ladderdown_side_image" filename="PC9801/ladderdown0_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung0_ladderdown_side" x="89" y="176" width="174" height="176"/>
+        </image>
+        <image name="dung1_ladderdown_image" filename="PC9801/ladderdown1.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung1_ladderdown" x="128" y="176" width="97" height="95"/>
+        </image>
+        <image name="dung1_ladderdown_side_image" filename="PC9801/ladderdown1_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung1_ladderdown_side" x="128" y="176" width="97" height="95"/>
+        </image>
+        <image name="dung2_ladderdown_image" filename="PC9801/ladderdown2.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung2_ladderdown" x="155" y="176" width="42" height="39"/>
+        </image>
+        <image name="dung2_ladderdown_side_image" filename="PC9801/ladderdown2_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung2_ladderdown_side" x="155" y="176" width="42" height="39"/>
+        </image>
+        <image name="dung3_ladderdown_image" filename="PC9801/ladderdown3.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung3_ladderdown" x="169" y="176" width="12" height="11"/>
+        </image>
+        <image name="dung3_ladderdown_side_image" filename="PC9801/ladderdown3_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung3_ladderdown_side" x="169" y="176" width="12" height="11"/>
+        </image>
+        <image name="dung0_ladderupdown_image" filename="PC9801/ladderupdown0.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung0_ladderupdown" x="89" y="0" width="174" height="352"/>
+        </image>
+        <image name="dung0_ladderupdown_side_image" filename="PC9801/ladderupdown0_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung0_ladderupdown_side" x="89" y="0" width="174" height="352"/>
+        </image>
+        <image name="dung1_ladderupdown_image" filename="PC9801/ladderupdown1.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung1_ladderupdown" x="128" y="80" width="97" height="191"/>
+        </image>
+        <image name="dung1_ladderupdown_side_image" filename="PC9801/ladderupdown1_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung1_ladderupdown_side" x="128" y="80" width="97" height="191"/>
+        </image>
+        <image name="dung2_ladderupdown_image" filename="PC9801/ladderupdown2.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung2_ladderupdown" x="155" y="136" width="42" height="79"/>
+        </image>
+        <image name="dung2_ladderupdown_side_image" filename="PC9801/ladderupdown2_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung2_ladderupdown_side" x="155" y="136" width="42" height="79"/>
+        </image>
+        <image name="dung3_ladderupdown_image" filename="PC9801/ladderupdown3.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung3_ladderupdown" x="169" y="164" width="12" height="23"/>
+        </image>
+        <image name="dung3_ladderupdown_side_image" filename="PC9801/ladderupdown3_side.png" xu4Graphic="true" prescale="2">
+            <subimage name="dung3_ladderupdown_side" x="169" y="164" width="12" height="23"/>
+        </image>

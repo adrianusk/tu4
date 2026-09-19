@@ -1,0 +1,7 @@
+<!-- $Id$ -->
+
+<!ELEMENT armors ( armor+ ) >
+
+<!ELEMENT armor ( constraint* ) >
+<!ATTLIST armor name       CDATA   #REQUIRED
+                defense    NMTOKEN #REQUIRED>

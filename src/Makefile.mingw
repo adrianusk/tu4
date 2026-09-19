@@ -1,0 +1,122 @@
+#
+# Cross-compile tu4.exe for Windows (x86_64) from Linux using a MinGW-w64
+# toolchain. This is the text-mode SDL2 build:  UI=sdl2 CONF=xml GPU=none.
+#
+# It replaces the old xu4 SDL 1.2 mingw makefile. There are no pixel
+# graphics themes, no libpng, and no Ultima-IV.mod -- tu4 renders CP437
+# characters and loads ASP assets. The SDL2 backend source files
+# (screen_sdl2.cpp / event_sdl2.cpp / sound_sdl2.cpp) are the same ones
+# built on Linux.
+#
+# --- Toolchain & dependencies (override on the command line) ----------
+# CROSS   : the MinGW-w64 target triple prefix for the compiler drivers.
+#           Works with either GCC (x86_64-w64-mingw32-g++) or the
+#           llvm-mingw clang driver of the same name.
+# SYSROOT : a prefix containing the Windows dev libraries (SDL2,
+#           SDL2_mixer, libxml2, zlib, iconv, lzma) laid out as
+#           include/ , lib/ and bin/ (DLLs).
+#
+# Example (llvm-mingw + a local sysroot, no root needed):
+#   make -f Makefile.mingw dist \
+#        CROSS=x86_64-w64-mingw32- \
+#        SYSROOT=$HOME/mingw-tu4/sysroot/mingw64 \
+#        PATH=$HOME/mingw-tu4/llvm-mingw/bin:$PATH
+#
+# Example (Debian/Ubuntu apt toolchain, headers/libs on default paths):
+#   make -f Makefile.mingw dist CROSS=x86_64-w64-mingw32-
+# ----------------------------------------------------------------------
+
+-include ../make.config
+
+# Where the packaged Windows build is assembled.
+U4PATH ?= ../tu4-win32
+
+CROSS   ?= x86_64-w64-mingw32-
+SYSROOT ?= /usr/x86_64-w64-mingw32
+
+CXX = $(CROSS)g++
+CC  = $(CROSS)gcc
+WINDRES ?= $(CROSS)windres
+
+UI=sdl2
+CONF=xml
+
+# Include search: -I$(SYSROOT)/include lets <SDL2/SDL.h> resolve;
+# libxml2 headers live under include/libxml2.
+INCFLAGS = -I$(SYSROOT)/include -I$(SYSROOT)/include/libxml2
+LIBDIRS  = -L$(SYSROOT)/lib
+
+# SDL2 supplies WinMain via SDL2main; order matters:
+#   -lmingw32 -lSDL2main -lSDL2  before everything else.
+# libxml2(static): -liconv. zlib: -lz. bcrypt: libxml2 randomness.
+SDL_LIBS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_mixer
+XML_LIBS = -lxml2 -liconv
+# Win32 system libraries required by the STATIC SDL2 build (from
+# sdl2.pc Libs.private) plus ws2_32 (winsock), cfgmgr32, zlib, bcrypt.
+SYS_LIBS = -lz -lbcrypt \
+           -lm -lkernel32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 \
+           -loleaut32 -lversion -luuid -ladvapi32 -lsetupapi -lshell32 \
+           -ldinput8 -lws2_32 -lcfgmgr32
+
+CXXFLAGS = -Wall -O2 -I. -Isupport $(INCFLAGS) -DLIBXML_STATIC \
+           -DVERSION=\"$(VERSION)\" -DHAVE_VARIADIC_MACROS=1 -DHAVE_BACKTRACE=0
+CFLAGS   = $(CXXFLAGS)
+
+# -mwindows : GUI subsystem (no console window).
+# static libgcc/libstdc++/winpthread so those runtimes need not ship.
+LDFLAGS = -static-libgcc -static-libstdc++ -static -mwindows
+LIBS    = $(LIBDIRS) $(SDL_LIBS) $(XML_LIBS) $(SYS_LIBS)
+
+EXEEXT := .exe
+
+# Application icon + version info compiled from win32/tu4.rc.
+OBJS = tu4res.o
+
+include Makefile.common
+
+tu4res.o: win32/tu4.rc win32/tu4.ico
+	$(WINDRES) -I win32 win32/tu4.rc tu4res.o
+
+
+# The fully static link (-static + static SDL2/SDL2_mixer/libxml2/zlib)
+# means tu4.exe imports only Windows system DLLs and the UCRT
+# (api-ms-win-crt-*) -- no third-party *import* DLLs.
+#
+# EXCEPTION: SDL2_mixer loads the tracker-music decoder libxmp.dll
+# DYNAMICALLY (LoadLibrary) at runtime to play the .it music. It is not
+# a link-time import, so it won't show up in `objdump -p`, but the game
+# WILL log "failed loading libxmp.dll" and play no music without it.
+# libxmp.dll itself only needs KERNEL32 + msvcrt, so it is self-contained.
+#
+# Provide libxmp.dll in $(SYSROOT)/bin (fetch the standalone MSYS2
+# mingw-w64-x86_64-libxmp package if your SDL2_mixer dev package didn't
+# include it).
+DLLS = libxmp.dll
+
+# Assemble a runnable Windows distribution directory.
+dist: $(MAIN)
+	mkdir -p $(U4PATH)
+	mkdir -p $(U4PATH)/conf/dtd
+	mkdir -p $(U4PATH)/conf/themes
+	mkdir -p $(U4PATH)/graphics/U5-EGA
+	mkdir -p $(U4PATH)/graphics/EGA
+	mkdir -p $(U4PATH)/mid
+	mkdir -p $(U4PATH)/sound
+	$(CROSS)strip $(MAIN) -o $(U4PATH)/$(MAIN)
+	cp ../conf/*.xml           $(U4PATH)/conf/
+	cp ../conf/sigdata.txt     $(U4PATH)/conf/
+	cp ../conf/dtd/*.dtd       $(U4PATH)/conf/dtd/
+	cp ../conf/themes/U5-EGA.xml ../conf/themes/EGA.xml $(U4PATH)/conf/themes/
+	cp ../graphics/U5-EGA/*.ASP ../graphics/U5-EGA/cp437_8x8.bin ../graphics/U5-EGA/palette.bin $(U4PATH)/graphics/U5-EGA/
+	cp ../graphics/EGA/*.ASP ../graphics/EGA/cp437_8x8.bin ../graphics/EGA/palette.bin $(U4PATH)/graphics/EGA/
+	cp ../graphics/tu4.bmp     $(U4PATH)/graphics/
+	cp ../mid/*.mid ../mid/*.it $(U4PATH)/mid/
+	cp ../sound/*.ogg          $(U4PATH)/sound/
+	for d in $(DLLS); do cp $(SYSROOT)/bin/$$d $(U4PATH)/ ; done
+	cp ../COPYING              $(U4PATH)/COPYING.txt
+	cp ../README.md            $(U4PATH)/README.txt
+
+clean-local:
+	-rm -rf $(U4PATH) tu4res.o
+
+-include .depends

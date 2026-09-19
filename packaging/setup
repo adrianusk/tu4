@@ -1,0 +1,98 @@
+#!/bin/sh
+# TU4 Linux Installer
+#
+# TU4 is a text-mode (80x50 CP437) recreation of Ultima IV, built on
+# SDL2. This script installs the tu4 binary and its runtime resources
+# (config, text-mode graphics themes, music and sound) to the system
+# directories, plus a desktop launcher entry and icon.
+#
+# Resources go under /usr/share/tu4, which is one of the root resource
+# paths the tu4 binary searches at runtime. Installation is optional --
+# tu4 can be run directly from this directory.
+#
+# You will need Ultima IV for DOS game data; it is NOT included here and
+# is NOT installed by this script. Place it in the current directory (or
+# an "ultima4" subdirectory) when running tu4. See the README for details.
+
+# Resolve the repository root (parent of this packaging/ directory).
+SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+ROOT_DIR=$(cd "$SELF_DIR/.." && pwd)
+
+RES_DIR=/usr/share/tu4
+
+install_deps() {
+	echo "Ensuring SDL2 runtime libraries are installed..."
+	if [ -r /etc/os-release ]; then
+		. /etc/os-release
+	fi
+	case $ID in
+	arch)
+		sudo pacman -Sy --needed sdl2 sdl2_mixer
+		;;
+	fedora)
+		sudo dnf install SDL2 SDL2_mixer
+		;;
+	ubuntu|pop|debian|devuan|linuxmint)
+		sudo apt-get install libsdl2-2.0-0 libsdl2-mixer-2.0-0
+		;;
+	*)
+		echo "Please ensure SDL2 and SDL2_mixer are installed manually."
+		;;
+	esac
+}
+
+case $1 in
+install)
+	if [ ! -x "$ROOT_DIR/tu4" ]; then
+		echo "Error: $ROOT_DIR/tu4 not found. Build it first (cd src && make && cp tu4 ..)."
+		exit 1
+	fi
+
+	# Binary
+	sudo install -D -m 755 "$ROOT_DIR/tu4" /usr/bin/tu4
+
+	# Desktop integration
+	sudo install -D -m 644 "$ROOT_DIR/graphics/tu4.png" \
+		/usr/share/icons/hicolor/48x48/apps/tu4.png
+	sudo install -D -m 644 "$ROOT_DIR/packaging/tu4.desktop" \
+		/usr/share/applications/tu4.desktop
+
+	# Runtime resources: config, text-mode graphics themes, music, sound
+	sudo install -d "$RES_DIR/conf" "$RES_DIR/conf/dtd" \
+		"$RES_DIR/graphics/U5-EGA" "$RES_DIR/graphics/PC9801" \
+		"$RES_DIR/mid" "$RES_DIR/sound"
+	sudo install -m 644 "$ROOT_DIR"/conf/*.xml "$RES_DIR/conf"
+	sudo install -m 644 "$ROOT_DIR"/conf/sigdata.txt "$RES_DIR/conf"
+	sudo install -m 644 "$ROOT_DIR"/conf/dtd/*.dtd "$RES_DIR/conf/dtd"
+	sudo install -m 644 "$ROOT_DIR"/graphics/U5-EGA/* "$RES_DIR/graphics/U5-EGA"
+	sudo install -m 644 "$ROOT_DIR"/graphics/PC9801/* "$RES_DIR/graphics/PC9801"
+	sudo install -m 644 "$ROOT_DIR"/graphics/tu4.bmp "$RES_DIR/graphics/tu4.bmp"
+	sudo install -m 644 "$ROOT_DIR"/mid/*.mid "$RES_DIR/mid" 2>/dev/null
+	sudo install -m 644 "$ROOT_DIR"/mid/*.it  "$RES_DIR/mid" 2>/dev/null
+	sudo install -m 644 "$ROOT_DIR"/sound/*.ogg "$RES_DIR/sound" 2>/dev/null
+
+	install_deps
+	echo "Done. Run 'tu4' (Ultima IV DOS data must be reachable at runtime)."
+	;;
+
+uninstall)
+	sudo rm -f /usr/bin/tu4
+	sudo rm -f /usr/share/icons/hicolor/48x48/apps/tu4.png
+	sudo rm -f /usr/share/applications/tu4.desktop
+	sudo rm -rf "$RES_DIR"
+	echo "Uninstalled tu4."
+	;;
+
+*)
+	echo "Usage: $0 [install | uninstall]"
+	echo
+	echo "Actions:"
+	echo "  install     Install tu4 and its resources to system directories"
+	echo "  uninstall   Remove previously installed files."
+	echo
+	echo "Note that the program can be run from this directory - installation is optional."
+	echo
+	echo "You will need Ultima IV for DOS; it is not included here."
+	echo "See http://xu4.sourceforge.net/faq.html for more information."
+	;;
+esac

@@ -1,0 +1,163 @@
+NULL=
+MAIN=tu4$(EXEEXT)
+
+VERSION=TU4-1.0
+
+CSRCS=\
+        anim.c \
+        lzw/hash.c \
+        lzw/lzw.c \
+        support/notify.c \
+        unzip.c \
+        $(NULL)
+
+CXXSRCS=\
+        annotation.cpp \
+        aura.cpp \
+        camp.cpp \
+        cheat.cpp \
+        city.cpp \
+        codex.cpp \
+        combat.cpp \
+        controller.cpp \
+        context.cpp \
+        creature.cpp \
+        death.cpp \
+        debug.cpp \
+        direction.cpp \
+        discourse.cpp \
+        dungeon.cpp \
+        dungeonview.cpp \
+        error.cpp \
+        event.cpp \
+        event_$(UI).cpp \
+        filesystem.cpp \
+        game.cpp \
+        image.cpp \
+        imageloader.cpp \
+        imagemgr.cpp \
+        imageview.cpp \
+        intro.cpp \
+        item.cpp \
+        location.cpp \
+        map.cpp \
+        maploader.cpp \
+        menu.cpp \
+        menuitem.cpp \
+        movement.cpp \
+        names.cpp \
+        object.cpp \
+        party.cpp \
+        person.cpp \
+        portal.cpp \
+        progress_bar.cpp \
+        rle.cpp \
+        savegame.cpp \
+        screen.cpp \
+        screen_$(UI).cpp \
+        settings.cpp \
+        shrine.cpp \
+        sound_$(UI).cpp \
+        spell.cpp \
+        stats.cpp \
+        textview.cpp \
+        tile.cpp \
+        tileanim.cpp \
+        tileset.cpp \
+        tileview.cpp \
+        u4file.cpp \
+        utils.cpp \
+        view.cpp \
+        tu4.cpp \
+        lzw/u4decode.cpp \
+        lzw/u6decode.cpp \
+        $(NULL)
+
+ifeq ($(CONF),xml)
+	CXXSRCS+=config_xml.cpp script_xml.cpp xml.cpp support/SymbolTable.cpp
+else
+	CSRCS+=support/cdi.c
+	CXXSRCS+=config_boron.cpp
+endif
+
+OBJS += $(CSRCS:.c=.o) $(CXXSRCS:.cpp=.o)
+
+# ---------------------------------------------------------------------------
+# tu4-setup: in-memory C++ port of the u4dec -> png2psci -> psci2asp authoring
+# path (see DESIGN-tu4setup.md). Built as a standalone tool; reuses the RLE/LZW
+# decompressors from source (NOT any stale checked-in objects) plus the EGA PNG
+# palette table from util/pngconv.o. No SDL/GL/xml dependency.
+# ---------------------------------------------------------------------------
+SETUP_CXXSRCS=\
+        setup/lab_color.cpp \
+        setup/ega_palette.cpp \
+        setup/image_ops.cpp \
+        setup/decode.cpp \
+        setup/png2asp.cpp \
+        setup/aspdiff.cpp \
+        setup/dungobj.cpp \
+        setup/manifest.cpp \
+        setup/tu4setup_main.cpp \
+        $(NULL)
+
+# Setup-private objects for the reused decompressors. Compiled fresh from
+# source into setup/ so they can NEVER pick up a stale/cross-compiled checked-in
+# rle.o / lzw/*.o (observed: Windows COFF objects -> "dangerous relocation").
+SETUP_OBJS=$(SETUP_CXXSRCS:.cpp=.o) \
+        setup/rle.setup.o setup/lzw.setup.o setup/hash.setup.o
+
+all:: $(MAIN) mkutils
+
+mkutils::  coord$(EXEEXT) dumpmap$(EXEEXT) dumpsavegame$(EXEEXT) tlkconv$(EXEEXT) u4dec$(EXEEXT) u4enc$(EXEEXT) u4unpackexe$(EXEEXT)
+
+# tu4-setup is intentionally NOT part of `all` (it is an asset-authoring/setup
+# tool, not needed for the game build). Build it explicitly: `make tu4-setup`.
+tu4-setup$(EXEEXT): $(SETUP_OBJS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(SETUP_OBJS)
+
+setup/rle.setup.o: rle.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+setup/lzw.setup.o: lzw/lzw.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+setup/hash.setup.o: lzw/hash.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# mkaspdiff — DEV-ONLY .aspdiff generator (DESIGN §6). Links only aspdiff.o
+# (which is self-contained: crc32 + canonicalize + no image/decode deps).
+mkaspdiff$(EXEEXT): ../tools/mkaspdiff.cpp setup/aspdiff.o
+	$(CXX) $(CXXFLAGS) -o $@ ../tools/mkaspdiff.cpp setup/aspdiff.o
+
+$(MAIN): $(OBJS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+
+coord$(EXEEXT): util/coord.c
+	$(CC) -o $@ $+
+
+dumpmap$(EXEEXT) : util/dumpmap.c
+	$(CC) -o $@ $+
+
+dumpsavegame$(EXEEXT) : util/dumpsavegame.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $+
+
+tlkconv$(EXEEXT) : util/tlkconv.c
+	$(CC) -o $@ $+ $(shell xml2-config --cflags) $(shell xml2-config --libs)
+
+u4dec$(EXEEXT) : util/u4dec.o lzw/lzw.o lzw/u4decode.o lzw/hash.o rle.o util/pngconv.o
+	$(CC) -o $@ $+ -lpng -lz
+
+u4enc$(EXEEXT) : util/u4enc.o lzw/hash.o util/pngconv.o
+	$(CC) -o $@ $+ -lpng -lz
+
+u4unpackexe$(EXEEXT): util/u4unpackexe.c
+	$(CC) -o $@ $+
+
+clean:: cleanutil
+	rm -rf *~ */*~ $(OBJS) $(MAIN) $(SETUP_CXXSRCS:.cpp=.o) setup/rle.setup.o setup/lzw.setup.o setup/hash.setup.o tu4-setup$(EXEEXT) mkaspdiff$(EXEEXT)
+
+cleanutil::
+	rm -rf coord$(EXEEXT) dumpmap$(EXEEXT) dumpsavegame$(EXEEXT) u4dec$(EXEEXT) u4enc$(EXEEXT) tlkconv$(EXEEXT) u4unpackexe$(EXEEXT) util/*.o
+
+TAGS: $(CSRCS) $(CXXSRCS)
+	etags *.h $(CSRCS) $(CXXSRCS)

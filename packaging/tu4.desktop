@@ -1,0 +1,14 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=TU4
+GenericName=Ultima IV Text Mode
+Comment=A text-mode (80x50 CP437) recreation of Ultima IV
+Exec=/home/adrianus/tu4-1.0/tu4
+Path=/home/adrianus/tu4-1.0
+Icon=tu4
+Terminal=false
+StartupWMClass=tu4
+Categories=Game;RolePlaying;
+Keywords=ultima;rpg;roguelike;

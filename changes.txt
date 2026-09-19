@@ -1,0 +1,1863 @@
+tu4-1.0 Changes
+================
+
+2026-09-12: Fix creature drawn over a door/room face in the 3D dungeon view
+---------------------------------------------------------------------------
+Fixed a bug where a creature standing on a DOOR (or room) tile two steps
+ahead in the first-person dungeon view was drawn on top of / instead of
+the door, making the opaque door face vanish and the creature float in
+the corridor. Correct behaviour: the door is the nearer, opaque surface,
+so it is drawn and the creature on it stays hidden until the party moves
+up so the tile is at distance 1 (where the door itself opens to a
+distance-0 view).
+
+Root cause:
+- getTilesAt() pushes the base dungeon tile LAST, so for a stack
+  (tiles.size() > 1) tiles.front() is the topmost overlay (the creature)
+  and tiles.back() is the base tile it stands on.
+- tilesToGraphic() only looked at tiles.front(). A creature is not
+  architecture, so it returned DNGGRAPHIC_BASETILE. In the display loop
+  that makes graphicIndex() return -1 (drawWall draws nothing -> the door
+  face is skipped) and then drawInDungeon(tiles.front()) draws the
+  creature. Result: creature shown, door gone.
+
+Fix (src/dungeonview.cpp tilesToGraphic):
+- When a stack sits on a base tile, also inspect the BASE tile
+  (tiles.back()). If it is opaque architecture (DUNGEON_WALL /
+  SECRET_DOOR -> DNGGRAPHIC_WALL, DUNGEON_ROOM / DOOR -> DNGGRAPHIC_DOOR),
+  return that wall/door type. drawWall() then renders the nearer opaque
+  face and the loop's drawInDungeon() overlay is SKIPPED (its guard only
+  fires for DNGTILE/BASETILE) -- so the creature behind the door is not
+  drawn at all ("just draw what is nearer", rather than draw-then-cover).
+- A creature on an OPEN corridor/floor base still falls through to
+  BASETILE and is drawn normally. A rarer front-tile-is-architecture case
+  is handled first.
+- Behaviour fix, not a literal xu4 port: xu4's tilesToGraphic has the same
+  front-only limitation and likely shares this bug.
+
+Verified in-game: with a door tile two steps ahead, the NPC (tested bat
+and rat) is hidden behind the door face and only becomes visible after
+moving to distance 1. Built clean (.cpp-only), binary copied.
+
+File changed: src/dungeonview.cpp (tilesToGraphic).
+
+2026-09-12: Fix dungeon crash / black screen after live text-style change
+--------------------------------------------------------------------------
+Fixed a crash (and, after a first partial fix, a black dungeon) when the
+player changes the Text Style while a dungeon game is in progress:
+enter a dungeon -> Ctrl-Q back to the main menu -> Configure -> change
+textStyle (e.g. EGA -> U5-EGA) -> Journey Onward.
+
+Root cause (two linked bugs):
+- The DungeonView (held in the Screen struct, created once by
+  screenMakeDungeonView() and guarded by `if (dungeonView) return`)
+  caches RAW pointers into the current scheme's images/ASP data:
+  dungObj0Data / dungNpc1Data / dungObj1Data (from image->getAspData())
+  and the graphic[].info/.sub array. The deferred text-style reload runs
+  screenReInit(), which does `delete xu4.imageMgr` + Tileset::unloadImages()
+  -- freeing exactly those images. screenReInit() did NOT touch the
+  DungeonView, so its cached pointers dangled -> SIGSEGV on the next
+  dungeon draw ("Journey Onward").
+- A first fix merely NULLed the DungeonView in screenReInit(). That stopped
+  the crash but produced a BLACK dungeon: resuming an in-progress dungeon
+  via journeyOnward() takes the "return to a running game" path
+  (xu4.saveGame set -> StagePlay), which does NOT call setMap() -- the
+  location is unchanged -- so screenMakeDungeonView() never re-ran, the
+  DungeonView stayed NULL, and the draw path `if (dungeonView)` (screen.cpp)
+  simply skipped rendering.
+
+Fix (src/screen.cpp screenReInit()):
+- Inspect whether in-progress dungeon graphics state is loaded (a non-NULL
+  Screen::dungeonView means a dungeon game is active). Record hadDungeonView,
+  delete the stale DungeonView during teardown (its pointers reference
+  soon-to-be-freed images), then AFTER the rebuild (`new ImageMgr` re-points
+  baseSet to the new textStyle; newTileAnims; Tileset::loadImages()) call
+  screenMakeDungeonView() again to RECREATE it -- re-caching every image/ASP
+  pointer against the new scheme. Recreate (not just NULL) because resume
+  does not go through setMap().
+- Safe because the recreate happens after imageMgr + tileset are rebuilt,
+  and the game context (c) and the config's tileset are still alive while the
+  game is in progress. Other views (world/city/combat) look images up on
+  demand each frame and refresh automatically, so only the pointer-caching
+  DungeonView needed this hook.
+
+Built clean (incremental, .cpp-only change) and binary copied.
+
+File changed: src/screen.cpp (screenReInit).
+
+2026-09-12: EGA theme separate N/S dungeon wall art (per-heading blue/green)
+----------------------------------------------------------------------------
+Gave the "EGA" text style distinct east-west vs north-south dungeon
+wall/door art so the 3D first-person view matches xu4's EGA look, where
+a wall's colour tracks its WORLD orientation, not the player's facing.
+Previously tu4's EGA theme pointed both orientations at one ASP file, so
+the whole corridor was a single colour that just followed player heading
+(all blue or all green). This is the roadmap FUTURE item "North/South
+dungeon wall variant"; we took the "separate ns ASP files" route (tu4's
+fixupDungNS is a no-op stub — a per-pixel RGB swap has no text-mode
+equivalent, and recolouring char+attr art at load time is awkward).
+
+How xu4 does it (verified in /home/adrianus/xu4-1.0):
+- dungeonview.cpp graphicIndex() selects one dngGraphicInfo entry per
+  wall piece: index = doorBase + (xoffset+1)*2 + distance*6, then +1 when
+  orientation is NORTH|SOUTH. Each distance block is
+  {lft_ew, lft_ns, mid_ew, mid_ns, rgt_ew, rgt_ns}, so the SAME
+  orientation bit picks the _ns variant for BOTH the side walls (lft/rgt)
+  and the facing wall (mid).
+- The colour difference between side and facing walls comes from the
+  SOURCE FILES, not the code: EGA graphics.xml feeds lft/rgt from
+  dungeonhall.png (base BLUE) and mid from dung0ma.png (base GREEN); the
+  _ns entries add fixup="dungns", an all-image blue<->green swap
+  (imagemgr.cpp fixupDungNS). Net per view:
+    facing E/W -> side walls BLUE, wall ahead GREEN
+    facing N/S -> side walls GREEN, wall ahead BLUE
+  i.e. side vs facing are always opposite colours, and both flip when you
+  turn 90 degrees. (CGA/compcga/PC9801 ship explicit *_ns.png files with
+  no fixup, where dung0ma_ns is the inverse colour of dung0ma — the
+  pre-coloured-file model tu4 now follows.)
+
+Asset pipeline (graphics/ega/imgsrc44 -> graphics/EGA):
+- 39 source PNGs (44x44 dungeon art: hall/door walls per distance, plus
+  ladders and traps) converted PNG -> .psci (Playscii batch_png2psci.py,
+  44x44, charset dos40, palette ega) -> .ASP (psci2asp_44.py, lossless
+  char+attr copy). Both are batch tools; every .ASP is 3879 bytes
+  (7-byte BSAVE header fd/segB800/off2040/len3872 + 44*44 char+attr).
+- Playscii discards PNG alpha (Image.convert('RGB')): fully-transparent
+  pixels flatten to black and encode as char 0 / attr 0x00 (opaque black
+  rectangle), NOT transparency. New post-process
+  graphics/converters/asp_blackfill_to_space.py rewrites exactly the
+  char0/attr0 cells to space (0x20), the tu4 transparency marker (space
+  char = transparent, any attribute; per 2026-09-07). Narrow rule: a scan
+  showed char0/attr0 is the ONLY black-on-black combination present and
+  real content uses non-zero chars/attrs, so it cannot punch holes in
+  opaque black. 52331 cells rewritten across 31/39 files; the 8 fully
+  opaque source PNGs (no alpha) were left untouched.
+- Copied all 39 .ASP into graphics/EGA/ (literal copy; adds _ew/_ns
+  suffixed dungeon/hall files alongside the legacy un-suffixed names and
+  a lowercase traps.ASP next to the existing TRAPS.ASP).
+
+Facing-wall colour correction (name swap):
+- The new source art was authored as _ew=BLUE / _ns=GREEN UNIFORMLY. That
+  is correct for the SIDE-wall files (dungeonhall_ew=blue, _ns=green ==
+  xu4) but INVERTED for the FACING-wall files, which xu4 has as
+  dung0ma EW=green / NS=blue. Fixed by swapping the ew<->ns filenames of
+  the 5 facing-wall pairs only (dung0ma, dung0ma_door, dung{1,2,3}ma_door)
+  via a temp name, so _ew now = green and _ns = blue for those. Side-wall
+  files left as-is. Verified post-swap: facing files _ew=green/_ns=blue,
+  side files _ew=blue/_ns=green.
+
+Config (conf/graphics-text.xml, EGA imageset ONLY; minimal-diff):
+- Halls: dungew->dungeonhall_ew.ASP, dungns->dungeonhall_ns.ASP,
+  dungew_door->dungeonhall_door_ew.ASP, dungns_door->..._door_ns.ASP.
+- Back walls (xu4 model: distances 1-3 are y-offset crops of the
+  distance-0 file, NOT separate files): all dungback* EW subimages now
+  crop dung0ma_ew.ASP; added parallel dungback{0,1,2,3}_ns image entries
+  cropping dung0ma_ns.ASP. The old per-distance dung1ma/2ma/3ma.ASP are no
+  longer referenced by EGA. (Verified the y=8/16/20 crop regions of the
+  new dung0ma files carry the same content the old standalone files had.)
+- Door mids: dung{0,1,2,3}_mid_ew_door* -> dung{N}ma_door_ew.ASP,
+  _ns_door* -> dung{N}ma_door_ns.ASP.
+- U5-EGA and PC9801 imagesets UNCHANGED: both orientations still share one
+  file (the "theme that doesn't differentiate points to the same
+  subimage" case; matches xu4 u5ega which uses fixup on a shared file).
+- No code change. dungeonview.cpp already resolves _ew/_ns purely by
+  SUBIMAGE NAME via ImageMgr::imageInfo()'s global scan over all image
+  entries, so splitting/renaming the parent <image> entries is safe (all
+  subimage names preserved). fixupDungNS stays an unused no-op stub.
+
+New tool: graphics/converters/asp_blackfill_to_space.py (batch/single,
+--dry-run, --space). Files changed: conf/graphics-text.xml (EGA imageset);
+new/updated graphics/EGA/*.ASP dungeon art; roadmap.txt (item resolved for
+EGA).
+
+Interior flat-fill cleanup (same day):
+- The PNG->.psci glyph match left dither/shade glyphs (0xB0 light, 0xB1
+  medium, 0xB2 dark, 0xFA centred dot) scattered inside the solid-colour
+  wall interiors, making the flat walls look "dirty". New tool
+  graphics/converters/asp_clean_inner_shading.py rewrites such a shading
+  cell to the clean fill char 0x00 ONLY when all 8 neighbours are interior
+  (flat fill 0x00 or another shading glyph) -- if any neighbour is a
+  detail/edge glyph, the transparency marker (0x20), or the image border,
+  the cell is kept. This flattens interior noise while preserving the
+  diagonal perspective edges and the corridor-opening rim. The ATTRIBUTE
+  byte is never touched, so the blue/green flat colour is unchanged.
+- Applied to graphics/EGA: 955 interior cells cleaned across the dungeon
+  wall/door files (e.g. dungeonhall_ew 89->4 shading glyphs, dung0ma_ew
+  ~95->14, the survivors all edge-adjacent). Ladders/traps: 0 (untouched).
+  Files stay 3879 bytes. Edges verified intact by grid visualisation.
+
+2026-09-11: Intro EGA assets, per-theme virtue-card placement, and two
+                build/config bug fixes
+--------------------------------------------------------------------------
+Decoded the remaining EGA intro screens to ASP, made the gypsy
+character-creation virtue cards positionable per theme via new abacus
+art attributes, and fixed two bugs hit along the way (a stale-object
+build that broke startup, and a wrong card-draw offset).
+
+Intro EGA assets (graphics/ega/imgsrc/):
+- Decoded 11 LZW-compressed EGA intro screens to PNG with u4dec
+  (`u4dec lzw <F>.EGA <F>.png 320 200`): PORTAL, TREE, OUTSIDE, WAGON,
+  GYPSY, INSIDE, then HONCOM, VALJUS, SPIRHUM, SACHONOR, ABACUS. All are
+  filetype image/x-u4lzw at 320x200 depth 4 per the EGA imageset in
+  conf/graphics.xml.
+- Converted each PNG -> 80x50 .psci (Playscii batch_png2psci.py, charset
+  dos40, palette ega) -> 80x50 .ASP (graphics/converters/psci2asp_44.py
+  batch mode, --width 80 --height 50). Every .ASP is 8007 bytes (7-byte
+  BSAVE header fd/segB800/off2040/len1F40=8000 + char+attr payload).
+
+Per-theme virtue-card placement (drawCard):
+- The gypsy question cards are now placed by CHOICE, not by crop origin:
+  choice A (pos 0) always draws in the LEFT slot, choice B (pos 1) in the
+  RIGHT slot. Slot coordinates come from new leftx/rightx/top attributes
+  on the abacus <image> element (view-relative, 0-based). The card's
+  pixels still come from its own subimage crop; only the destination
+  changed.
+- Replaced the old fixed originTable path. drawCard now reads
+  BKGD_ABACUS's cardLeftX/cardRightX/cardTop and draws at (slotX, slotY),
+  falling back to the card's own crop (subimage x-1, y-1) if the
+  attributes are unset (-1).
+- New ImageInfo fields cardLeftX/cardRightX/cardTop (imagemgr.h), parsed
+  in loadImageInfo() (config_xml.cpp) as leftx/rightx/top, default -1.
+- graphics-text.xml: added leftx/rightx/top to all three abacus images,
+  each matching that theme's own card crop origin (they differ because
+  U5-EGA's abacus is FM-Towns-derived): U5-EGA 6/53/4, PC9801 4/56/4,
+  EGA 3/55/3.
+
+Bug fix 1 -- stale-object build broke startup (no window, 100% CPU):
+- Adding fields to the ImageInfo struct in imagemgr.h and then doing a
+  plain incremental `make` linked object files compiled against two
+  different sizeof(ImageInfo) layouts (the Makefile has no header
+  dependency tracking). The resulting heap corruption sent
+  std::map::operator[] on ImageInfo::subImageIndex into an infinite loop
+  inside loadImageInfo(), so the SDL window was never created (nothing in
+  the taskbar) and the process spun at 100% CPU.
+- Fix: full clean rebuild (`cd src && make clean && make && cp tu4 ..`)
+  so every .cpp is compiled against the new struct layout. Rule captured
+  in .kiro/steering/tu4-development.md: ANY .h edit requires make clean.
+- (Also confirmed a separate red herring: validateXml=1 in
+  ~/.config/tu4/tu4rc makes libxml2 DTD validation pathologically slow at
+  startup on this system; shipping default is validateXml=0.)
+
+Bug fix 2 -- both cards drew in the top-left corner:
+- drawCard first computed dx = slotX - (cardSub->x - 1), but
+  ImageView::draw(Symbol, dx, dy) writes each cell at
+  (view.x + dx + col) -- dx,dy are the ABSOLUTE view-relative destination
+  and the source column is NOT added back. Since slot == crop for a given
+  theme, the offset cancelled to 0 and both cards landed at column 0.
+- Fix: pass the slot coordinates directly (dx = slotX, dy = slotY); the
+  fallback path uses (cardSub->x - 1, cardSub->y - 1).
+
+Files changed: src/imagemgr.h, src/config_xml.cpp, src/intro.cpp,
+               conf/graphics-text.xml (abacus leftx/rightx/top x3),
+               .kiro/steering/tu4-development.md;
+               new graphics/ega/imgsrc/*.{png,psci,ASP} for the 11 intro
+               screens. (conf/dtd/graphics.dtd was left unchanged;
+               validation is non-fatal and off by default.)
+
+
+2026-09-07: New "EGA" text style, simplified transparency rule, converter
+                cleanup, and MYSHAPES<->SHAPES round-trip tooling
+--------------------------------------------------------------------------
+Added a third text-mode theme "EGA", relaxed the tile transparency test
+to "space character = transparent" (any attribute), normalized which
+tiles are opaque vs transparent in the U5-EGA and EGA MYSHAPES.ASP art,
+retired the obsolete PNG->ASP converters, and added a reverse
+serializer (aspdecode.py) plus a per-tile transparency reference table.
+
+New "EGA" text style (conf/graphics-text.xml):
+- Added a complete <imageset name="EGA"> (84 image entries, same
+  structure/counts as U5-EGA and PC9801) and a matching
+  <tileanimset name="EGA">, all referencing graphics/EGA/ paths.
+- EGA uses the classic TITLE.ASP intro-animation subimage coordinates
+  and the classic ABACUS.ASP bead layout (ystart=6), matching the files
+  present in graphics/EGA/ (not the FM* variants).
+- Theme is auto-discovered: schemeNames() (config_xml.cpp) enumerates
+  <imageset name>, so "EGA" appears in the Configure -> Text Style menu
+  with no recompile. checkAssets() requires only MYSHAPES/START/TITLE
+  (all present), so EGA does not fall back to the default. dungeonview
+  branches on textStyle ending in "EGA", so EGA uses the EGA dungeon
+  scale tables like U5-EGA.
+- Seeded graphics/EGA/ with placeholder ASPs copied from U5-EGA for the
+  files it lacked, so the theme loads immediately; these are overwritten
+  as real EGA art is produced.
+
+Simplified transparency rule (engine): space char = transparent.
+- Changed the tile/dungeon/image transparency test from the strict
+  marker "char 0x20 AND attr 0x00" to "char == 0x20" (space, ANY
+  attribute). A space with a non-zero attribute (e.g. gray-on-black
+  0x20/0x07, which the new Playscii-authored art uses everywhere as
+  background fill) is now correctly treated as transparent.
+- Edited all draw paths: tileanim.cpp (animDrawTile,
+  animDrawTileScroll), tileview.cpp (static path), image.cpp (draw,
+  drawSubRect), screen.cpp (map-area blit), dungeonview.cpp (all 5
+  tile/object skip tests). Left the intro title-fade logic
+  (titleCellVisible) untouched -- it is a different concept.
+- Consequence for authoring: to make an all-black-rendering space cell
+  OPAQUE, convert it to full block 0xDB with fg = the space's ORIGINAL
+  BACKGROUND nibble (bg 0). This preserves solid colour (e.g. lava's
+  red-background spaces became 0xDB/0x0C, not black).
+
+MYSHAPES.ASP transparency normalization (U5-EGA and EGA):
+- The intent is captured in a new reference table (see below). The rule
+  divides tiles into opaque (terrain, letters/spacers, fields, lava,
+  moongate, waterside, rocks, ankh, dungeon_floor, ruins, shrine) vs
+  transparent (avatar/party/NPCs/monsters, ship, horse, balloon, chest,
+  corpse, flashes, etc.).
+- Opaque tiles that were authored with space fill had those spaces
+  converted to full block (fg = original bg nibble). U5-EGA: letters
+  96-126, terrain 0-15, dungeon_floor(22), ruins(29), shrine(30),
+  waterside(49-52), rocks(55), ankh(61), fields(68-71), lava(76),
+  moongate/openings(64-67). EGA: same set.
+- Ship (16-19): EDGE space cells are transparent, but the two INTERIOR
+  hull cells (frame 0 r2c1, frame 2 r2c2) were made opaque so water does
+  not show through the middle of the hull. Applied to both themes.
+- sea_serpent: frame 0's lone stray space was replaced with frame 1's
+  glyph so both frames are opaque/consistent (the theme art simply has
+  no transparency for it; the table INTENT stays YES).
+- Known theme-art gaps vs the table (both themes): pirate_ship W/E
+  facings (128,130) transparent while table says no; sea_serpent(136-137)
+  and slime[1]/[3] (161,163) opaque while table intends YES. These are
+  the current art's properties, not the design intent -- 250/256 match.
+
+Transparency reference table (graphics/converters/tile_transparency.md):
+- New doc: idx 0-255 -> tile name (frame-annotated) -> transparent
+  YES/no, ordered by conf/tilemap-base.xml (Ultima IV save id). This is
+  the theme-independent INTENT; rows marked (*) are manual overrides of
+  a raw file scan (e.g. letters/spacers -> no; moongate -> no; horse and
+  balloon -> yes). Totals: 169 transparent / 87 opaque.
+
+Converter cleanup (graphics/converters/):
+- REMOVED the obsolete PNG->ASP glyph-matching converters (png2asp.py,
+  png2asp_v2.py, png2asp_dung.py, png2asp_dungnpc2.py, png2asp_scobj.py,
+  png2asp_scobj_rgba.py). Authoring is now Playscii (.psci) -> ASP,
+  which is a lossless 1:1 char/fg/bg copy (psci2asp.py / psci2asp_44.py).
+- The PNG converters glyph-matched against cp437_8x8.bin, a font that
+  did NOT match the engine's cp437_8x8.h -- comparison showed only
+  ~54% byte overlap even after bit-reversal, and asymmetric glyphs like
+  '(' rendered mirrored. That is a different charset, not just a bit
+  order difference.
+- REGENERATED graphics/converters/cp437_8x8.bin directly from the engine
+  font src/../cp437_8x8.h so it is now byte-identical (2048 bytes,
+  MSB-first: bit 7 = leftmost pixel). Previews now match the game.
+- Updated converters/README.md: documented the removal, the new font
+  provenance, the space-only transparency rule, and aspdecode.py.
+
+New reverse serializer (graphics/converters/aspdecode.py):
+- Exact inverse of aspencode.py: MYSHAPES.ASP (256 serialized 32-byte
+  tiles) -> SHAPES.ASP (80x60 screen, 20x15 tile grid; unused slots
+  256-299 left blank). Verified round-trip
+  aspencode(aspdecode(x)) == x byte-for-byte.
+- Used to keep SHAPES.ASP in sync after editing MYSHAPES, and vice
+  versa, for both U5-EGA and EGA.
+
+Assets processed:
+- U5-EGA: SHAPES.ASP <-> MYSHAPES.ASP kept in sync through the edits
+  above (aspencode/aspdecode round-trips verified).
+- EGA: SHAPES.ASP -> MYSHAPES.ASP (aspencode); transparency normalized
+  (250/256 vs table); ship interior fixed; SHAPES.ASP regenerated
+  (aspdecode). TITLE.psci -> TITLE.ASP (psci2asp.py, lossless 80x50).
+
+Files changed: conf/graphics-text.xml,
+               src/tileanim.cpp, src/tileview.cpp, src/image.cpp,
+               src/screen.cpp, src/dungeonview.cpp,
+               graphics/U5-EGA/{MYSHAPES.ASP,SHAPES.ASP},
+               graphics/EGA/{MYSHAPES.ASP,SHAPES.ASP,TITLE.ASP} + seeded
+               placeholder ASPs,
+               graphics/converters/{cp437_8x8.bin (regenerated),
+               aspdecode.py (new), tile_transparency.md (new),
+               README.md};
+               removed graphics/converters/png2asp*.py (6 scripts).
+
+
+2026-09-03: Window/taskbar icon + Linux app-launcher entry
+-----------------------------------------------------------
+Added an application icon (the avatar figure) for both the running SDL
+window (taskbar/dock/alt-tab) and the Linux app launcher (application
+menu / file manager). On Linux the icon is NOT embedded in the ELF as
+on Windows -- the window icon is set at runtime via SDL, and the
+launcher icon comes from a .desktop file + icons installed into the
+hicolor theme.
+
+Icon art (the avatar / "Adventurer" tile):
+- Source is MYSHAPES.ASP tile 31 (the avatar tile's Ultima IV save id;
+  confirmed via tilemap-base.xml mapping order, single frame). Each
+  MYSHAPES tile is 4x4 chars = 32 bytes; tile N at offset 7 + N*32, so
+  the avatar is at offset 999. graphics-text.xml declares the "tiles"
+  image as tiles="256", indexed by tile number directly.
+- Rendered to 32x32 px (8px/char cell) using the ENGINE's font header
+  src/../cp437_8x8.h, which is MSB-first (bit 7 = leftmost pixel).
+  GOTCHA: the graphics/ converter scripts load cp437_8x8.bin as
+  LSB-first; using that bit order horizontally MIRRORS every glyph and
+  produced a wrong render. The .h font must be read MSB-first.
+- Background: solid BLACK. (A transparent "clean cutout" variant -- all
+  black keyed out -- was tried first but looked worse, so the full
+  black background is kept.) The tile's space+0x00 background cells are
+  drawn as black.
+- Produced graphics/tu4.bmp (24-bit, black background) and
+  graphics/tu4.png (opaque, black background) plus 48x48 and 256x256
+  PNG scales.
+
+Runtime window icon (src/screen_sdl2.cpp):
+- After SDL_CreateWindow, load graphics/tu4.bmp via SDL_LoadBMP (core
+  SDL only -- no SDL_image dependency), then SDL_SetWindowIcon. No color
+  key (background is opaque black). Fails gracefully (verbose-only
+  warning) if the BMP is missing. Path is relative to the working dir
+  (where tu4 is launched). Built clean (make, exit 0), binary copied.
+  (SDL3 backend screen_sdl3.cpp left unchanged; build config is UI=sdl2.)
+
+App-launcher entry (Linux desktop integration):
+- packaging/tu4.desktop (repo copy) installed to
+  ~/.local/share/applications/tu4.desktop:
+    Exec=/home/adrianus/tu4-1.0/tu4, Path=/home/adrianus/tu4-1.0,
+    Icon=tu4, Terminal=false, Categories=Game;RolePlaying;.
+  Validated with desktop-file-validate (OK); update-desktop-database
+  refreshed the DB.
+- Themed icons installed so Icon=tu4 resolves:
+    ~/.local/share/icons/hicolor/{32x32,48x48,256x256}/apps/tu4.png
+  (gtk-update-icon-cache not present on this system -- non-fatal; a
+  re-login refreshes the menu cache if needed.)
+
+Files changed: src/screen_sdl2.cpp,
+               graphics/tu4.bmp (new), graphics/tu4.png (new),
+               packaging/tu4.desktop (new);
+               installed (outside repo): ~/.local/share/applications/
+               tu4.desktop, ~/.local/share/icons/hicolor/*/apps/tu4.png
+
+
+2026-09-03: Altar object rendered at distance 0 in the 3D dungeon view
+                (added as 4th DUNGOBJ0 object)
+-----------------------------------------------------------------------
+The dungeon_altar tile now renders as scaled 16x16 object art at
+distance 0 in the first-person 3D dungeon view (previously it fell
+through to the small 4x4 MYSHAPES path via its image="tile_altar"
+override). Altar rooms are still entered as a separate top-down 11x11
+view (CTX_ALTAR_ROOM) -- this only affects how the altar tile looks
+when seen ahead in the corridor. We deliberately did NOT suppress the
+altar in the 3D view; instead a 4th object was added so it draws like
+the fountain/chest/orb.
+
+Object mapping (src/dungeonview.cpp):
+- objTiles[] gained { "dungeon_altar", 47 } (indices: fountain=44,
+  chest=45, magic_orb=46, altar=47; loop bound 3 -> 4). The DUNGOBJ0/
+  DUNGOBJ1 draw paths already generalize (they test >= 44 and index
+  baseTile-44), so the altar resolves to file index 3 with no logic
+  change. The fountain-only scroll guard (baseTile == 44) correctly
+  leaves the altar un-animated.
+
+DUNGOBJ0.ASP -- distance 0, 16x16 (added altar as 4th record):
+- New file = 7-byte BSAVE header + 4*512 = 2055 bytes. Installed into
+  graphics/U5-EGA/ and graphics/PC9801/ (old 3-object 1543-byte files
+  kept as *.ASP.3obj.bak / *.ASP.prev.bak).
+- conf/graphics-text.xml: dung_obj0 tiles 48 -> 64 in both themes
+  (4 objects * 16 units; the "tiles" attribute counts 32-byte 4x4
+  units, so a 16x16 tile = 16 units).
+
+DUNGOBJ1.ASP -- distance 1+, 8x8 (kept at 3 objects for now):
+- Left unchanged (391 bytes, 3 objects). dung_obj1 tiles stays 12.
+- Guarded both 8x8 object draw branches (distance 1 EGA / distance 2
+  non-EGA) to base tiles 44-46 only, so the altar (47) is NOT read
+  from the 3-object DUNGOBJ1 buffer. At distance 1+ the altar falls
+  through to the 4x4 MYSHAPES path instead (honoring image="tile_altar"
+  -> renders the altar's own MYSHAPES graphic). This avoids an
+  out-of-bounds read past the 3-object DUNGOBJ1 data.
+
+Asset conversion (new converters in graphics/test/):
+- Source: graphics/test/scobjsrc.png -- four 128x128 object tiles laid
+  out HORIZONTALLY (512x128), order left->right = fountain, chest,
+  magic_orb, altar. 128px / 8px-per-cell = 16x16 chars per tile.
+- png2asp_scobj_rgba.py (alpha-driven, PREFERRED -- keeps the PNG
+  editable): transparency comes entirely from the source PNG's alpha
+  channel. Rearranges the horizontal strip into a vertical stack, then
+  per 8x8 CELL: fully-transparent cell (no opaque pixel) -> space 0x20 +
+  attr 0x00 (ASP transparent marker); otherwise EGA + best-fit CP437
+  glyph, with a solid-black opaque cell -> full block 0xDB + attr 0x00.
+  --alpha-thresh T lets a pixel count as opaque only when alpha > T
+  (default 0). Usage:
+      python3 graphics/test/png2asp_scobj_rgba.py \
+              graphics/test/scobjsrc.png /tmp/DUNGOBJ0.ASP
+  then copy into graphics/{U5-EGA,PC9801}/.
+- png2asp_scobj.py (earlier variant, kept as fallback): same stacking
+  and 16x16 output, but transparency decided by a per-tile black-mode
+  rule instead of alpha -- fountain=opaque, chest=border flood-fill
+  (exterior black transparent / interior black opaque), orb=transparent,
+  altar=opaque. Superseded by the RGBA converter once the source gained
+  a real alpha channel.
+- Both converters reuse the pixel->char+attr logic from
+  png2asp_dungnpc2.py (EGA-palette match + 2-dominant-color CP437 glyph
+  fit) and write the standard BSAVE header (0xFD, 0xB800, off, len).
+
+Per-tile transparency in the shipped DUNGOBJ0.ASP (from the edited
+alpha source): fountain all-black opaque; chest exterior transparent /
+interior opaque; orb background fully transparent; altar background
+transparent with an opaque-black outline. Verified by cell counts and
+a rendered preview.
+
+Build: no recompile strictly required for the asset swap, but the code
+change (objTiles[] + the two 8x8 guards) was built clean (make, exit 0)
+and the binary copied.
+
+NOT yet verified in a live game session -- needs a dungeon 3D view with
+an altar in front of the party to confirm on-screen.
+
+Files changed: src/dungeonview.cpp, conf/graphics-text.xml,
+               graphics/{U5-EGA,PC9801}/DUNGOBJ0.ASP,
+               graphics/test/png2asp_scobj_rgba.py (new),
+               graphics/test/png2asp_scobj.py (new)
+
+
+2026-08-28: Intro story text lowered + abacus background extended, and
+                fmabacus.png converted to ASP
+------------------------------------------------------------------------
+Repositioned the intro story/question text area and grew the abacus
+background to meet it, plus added a new abacus art asset.
+
+Intro text area (src/intro.cpp):
+- INTRO_TEXT_Y: 38 -> 41 (0-based screen row; row 42 counting from 1).
+  This is the questionArea origin, passed straight to
+  screenPutChar(this->y + y, ...), so it is a 0-based row index.
+- INTRO_TEXT_HEIGHT: 12 -> 6 (matches xu4's INTRO_TEXT_HEIGHT of 6).
+  With origin row 41 the text band now spans rows 41-46, safely inside
+  the 50-row screen. Note TextView::drawChar has ASSERT(y < rows), so
+  height 6 also bounds the story text to 6 lines as in xu4.
+
+Abacus background extent (src/intro.cpp):
+- The two BKGD_ABACUS blits now use maxRows=41 (was 38): in
+  updateScreen (showStory storyInd 23) and in startQuestions
+  (questionRound 0). This fills the abacus down to row 40, just above
+  the text area's new origin at row 41, closing the gap left when the
+  text moved down. Only ABACUS was changed; the tree/portal/outside/
+  inside/wagon/gypsy story backgrounds still cap at 38.
+- Row 41 is still below the abacus source-bead sprites (source row 47),
+  so the earlier source-bead leak fix is unaffected.
+
+Asset (graphics/U5-EGA/fmabacus.ASP, new):
+- Converted graphics/U5-EGA/fmabacus.png (640x400 RGBA) to an 80x50 ASP
+  using the existing project converter graphics/U5-EGA/png2asp_v2.py
+  (each 8x8 pixel block mapped to its 2 dominant EGA colors and matched
+  against all 256 CP437 glyphs). Output follows the ASP/BSAVE convention:
+  7-byte header (marker 0xFD, seg 0xB800, off 0x2040, length 0x1F40) +
+  8000-byte payload = 4000 cells (80x50) of char+attr pairs. Verified
+  header/size (8007 bytes total).
+
+Files changed: src/intro.cpp; graphics/U5-EGA/fmabacus.ASP (new)
+
+
+2026-08-27: Intro new-game prompts repositioned + abacus bead leak fix
+-----------------------------------------------------------------------
+Two intro/character-creation display fixes.
+
+Initiate New Game name/gender prompts (src/intro.cpp initiateNewGame):
+- The name and gender prompts were flush-left in menuArea (drawn at
+  local x=3 -> screen col 5). Moved them into the middle 40 columns of
+  the 80-wide screen (screen cols 20-59). menuArea's origin is screen
+  x=2, so the middle band begins at local x=18 (=20-2).
+- All three prompt lines are left-aligned to each other at local x=22
+  (screen col 24):
+    "By what name shalt thou be known"  (local x=22)
+    "in this world and time?"           (local x=22)
+    "Art thou Male or Female?"          (local x=22)
+  (Local x=22 = the first line centered in the 40-wide band,
+   18 + (40-32)/2; the other lines align to it.)
+- Cursor/answer positions moved to match: name input cursor local x=32
+  (screen col 34); sex answer cursor + echoed drawChar at local x=47
+  (screen col 49, just after the prompt). All stay within cols 20-59.
+
+Abacus source-bead leak during virtue selection (src/intro.cpp):
+- The abacus background (ABACUS.ASP) was blitted full-screen via
+  backgroundArea.draw(BKGD_ABACUS) with the default maxRows=50. That
+  exposed the white/black bead *source* sprites, which are stored at
+  source row 47 (cols 3-6) of ABACUS.ASP -- they appeared as stray
+  black-and-white beads at the bottom of the screen.
+- Fix: cap the abacus blit to 38 rows, matching the tree/story
+  backgrounds (draw(BKGD_TREE, 0, 0, 38)) since the text area below is
+  the same. draw(BKGD_ABACUS, 0, 0, 38) in both places it is drawn
+  (showStory storyInd 23, and startQuestions questionRound 0). Row 47
+  is beyond 38, so the source beads are no longer drawn.
+- The abacus rung beads still render correctly: drawAbacusBeads() draws
+  them explicitly at their destination positions (ystart=6, well within
+  the top 38 rows) by reading only the bead subrect from the source --
+  the same subrect-only approach animateTree()/the moongate animation
+  uses (read a defined source region, draw to destination; never blit
+  the whole image).
+
+Verified in-game (user-confirmed): prompts sit left-aligned in the
+middle band; stray source beads no longer appear at the bottom during
+virtue selection.
+
+Files changed: src/intro.cpp
+
+
+2026-08-27: Split dungeon object art into DUNGOBJ0/DUNGOBJ1 + fallthrough
+                image-override fix
+--------------------------------------------------------------------------
+Separated dungeon objects (fountain/chest/orb) from monster art in the
+3D first-person view, and fixed the fountain rendering as a "scrolling
+giant" at distance 2.
+
+Rationale:
+- NPCs/monsters are never actually drawn at distance 0 in the 3D view --
+  combat triggers when a creature reaches the adjacent tile, before the
+  player would ever see it standing in the corridor at distance 0. So the
+  44 NPC frames in DUNGNPC0.ASP were dead weight. Only the 3 objects
+  (fountain=44, chest=45, orb=46) are ever drawn there.
+
+Asset split (byte-level slice, no PNG regeneration -- ASP is a
+fixed-layout BSAVE file: 7-byte header + fixed-size char+attr tile
+records, so tiles can be extracted with dd):
+- DUNGNPC0.ASP (16x16, 48 tiles x 512 bytes) -> DUNGOBJ0.ASP: header +
+  object tiles 44/45/46 only = 1543 bytes (7 + 3*512). NPC art dropped
+  entirely. Objects re-based to indices 0/1/2.
+- DUNGNPC1.ASP (8x8, 48 tiles x 128 bytes) split into:
+    * DUNGNPC1.ASP trimmed to NPCs 0-43 only = 5639 bytes (7 + 44*128).
+    * DUNGOBJ1.ASP = header + object tiles 44/45/46 = 391 bytes
+      (7 + 3*128). Objects re-based to indices 0/1/2.
+- Done in both graphics/U5-EGA/ and graphics/PC9801/. All headers and
+  payloads md5-verified against the originals before replacing.
+
+Config (conf/graphics-text.xml, both themes):
+- dung_npc0 -> dung_obj0 (DUNGOBJ0.ASP, tiles="48").
+- dung_npc1 tiles 192 -> 176 (44 NPCs only).
+- Added dung_obj1 (DUNGOBJ1.ASP, tiles="12").
+  Note: the "tiles" attribute counts 32-byte (4x4) units, so a 16x16
+  tile = 16 units, an 8x8 tile = 4 units. 3 objects * 512/32 = 48;
+  3 objects * 128/32 = 12; 44 NPCs * 128/32 = 176.
+
+Code (src/dungeonview.cpp, src/dungeonview.h):
+- Renamed dungNpc0Data -> dungObj0Data; added dungObj1Data. Load from
+  "dung_obj0" / "dung_obj1".
+- dungNpcTileIndex[] keeps its original mapping (NPCs = i*4, objects =
+  44/45/46). The DUNGOBJ0/DUNGOBJ1 draw paths subtract 44 to index the
+  new 0/1/2 layout; the DUNGNPC1 path uses NPC indices 0-43 directly.
+- Distance-0 (DUNGOBJ0) and distance-1/2 8x8 blocks now branch per tile:
+  objects (baseTile >= 44) draw from the OBJ data at (baseTile-44);
+  NPCs (< 44) draw from DUNGNPC1 with mt.frame%4 cycling.
+
+Scroll animation in the 4x4 MYSHAPES fallthrough:
+- The default U5-EGA (EGA) theme draws objects at distance 2 via the
+  4x4 MYSHAPES fallthrough, which previously drew statically. Added the
+  same inline scroll advance used elsewhere in the 3D view
+  (screenState()->currentCycle / 2, wrap at tileHeight, downward
+  formula (row - offset + H) % H). Keyed on the tile having an
+  ATYPE_SCROLL anim, so only scroll tiles (fountain) animate.
+
+Fountain "scrolling giant" fix (the important one):
+- Root cause: the 4x4 fallthrough indexed MYSHAPES with
+  usaveIds->ultimaId(mt) on the fountain tile directly. The fountain has
+  NO MYSHAPES graphic of its own (it is not in tilemap-base.xml), so
+  ultimaId(fountain) landed on a wrong/oversized slot -> a giant.
+- In xu4 the fountain renders via its image override:
+    <tile name="fountain" image="tile_shallows" animation="scroll"/>
+  i.e. it uses the shallow-water graphic (shallows = save id 2, tile 3
+  in 1-based terms). Many dungeon tiles use this "tile_<name>" override
+  convention (magic_orb=tile_magic_flash, ladders=tile_bridge, etc.).
+- Fix: the fallthrough now honors the override. If tile->imageName is
+  "tile_<name>", it looks up that base tile and uses its ultimaId;
+  otherwise it falls back to ultimaId(mt). General fix -- corrects every
+  image-override dungeon tile at this path, not just the fountain.
+
+Verified in-game (user-confirmed): fountain at distance 2 now renders as
+scrolling shallow water at correct 4x4 size; objects render from the new
+OBJ files at distances 0-2; monsters still render from DUNGNPC1.
+
+Files changed: src/dungeonview.cpp, src/dungeonview.h,
+               conf/graphics-text.xml,
+               graphics/{U5-EGA,PC9801}/DUNGOBJ0.ASP (new),
+               graphics/{U5-EGA,PC9801}/DUNGOBJ1.ASP (new),
+               graphics/{U5-EGA,PC9801}/DUNGNPC1.ASP (trimmed);
+               DUNGNPC0.ASP retained as the source for DUNGOBJ0 but no
+               longer referenced by config.
+
+
+2026-08-25: U5-EGA title screen (FMTITLE.ASP) fade-in fixes
+-------------------------------------------------------------
+Fixed the intro title animation sequence not working correctly when
+using the U5-EGA textstyle with FMTITLE.ASP (FM Towns-inspired title).
+
+Background conversion (FMTITLE.ASP):
+- FMTITLE.ASP used black-on-black full blocks (ch=0xDB, attr=0x00) as
+  background, while titleCellVisible() only recognized gray-on-black
+  spaces (ch=0x20, attr=0x07) as background (matching PC9801/TITLE.ASP).
+  This caused the fade-in animations to treat all 2654 background cells
+  as visible content, filling the titleCells array and breaking the
+  scatter reveal.
+- Converted all black-on-black full blocks to gray-on-black spaces in
+  the screen data (offset 7+, preserving the 7-byte BSAVE header).
+  Both render identically as pure black on screen.
+
+Signature coordinates (conf/sigdata.txt):
+- Shifted all X coordinates +1 (to the right) to match the signature
+  character positions in FMTITLE.ASP, which are offset one column right
+  compared to PC9801/TITLE.ASP.
+- Normalized dot-separated coordinates to comma-separated format.
+
+Debug output (temporary, src/intro.cpp):
+- Added fprintf to stderr in loadTitleData() showing the loaded
+  titleReg[] values and sigCoords count for verifying correct XML
+  subimage loading per textstyle.
+
+Files changed: graphics/U5-EGA/FMTITLE.ASP, conf/sigdata.txt,
+               src/intro.cpp
+
+
+2026-08-23: Configure Menu Fixes
+---------------------------------
+- Fixed: Changing settings in the Game Graphics Options menu (transparency,
+  gem layout, line of sight, etc.) and applying them no longer causes the
+  title screen and map border to disappear. Previously the code did a full
+  deleteIntro()/screenReInit()/init() cycle which wiped the entire screen.
+  Since tu4 has a larger text screen where title/borders are persistent,
+  only the inner menu area needs to change — the full reinit was removed.
+
+- Fixed: Scale changes (1x to 2x or vice versa) now take effect immediately
+  again. The screenReInit() call is now conditionally invoked only when scale
+  or fullscreen settings actually change, preserving the window resize behavior
+  without destroying the intro display state.
+
+Files changed: src/intro.cpp (updateVideoMenu)
+
+2026-08-23: Rename 9801-style Theme to U5-EGA
+----------------------------------------------
+- Renamed the "9801-style" graphics theme to "U5-EGA" throughout:
+  - Directory: graphics/9801-style -> graphics/U5-EGA
+  - All filename references in conf/graphics-text.xml updated
+  - Imageset name in graphics-text.xml changed to "U5-EGA"
+  - DEFAULT_TEXT_STYLE in src/settings.h changed to "U5-EGA"
+
+- Made checkAssets() derive file paths from the textStyle setting in tu4rc
+  at runtime instead of using hardcoded directory names. This means theme
+  directory renames no longer require a recompile.
+
+Files changed: conf/graphics-text.xml, src/settings.h, src/tu4.cpp,
+               copy_asp_from_qb.sh, copy_asp_to_qb.sh,
+               graphics/test/png2asp_dungnpc2.py
+
+2026-08-10: Dungeon Tiled Wall Rendering (Fields)
+--------------------------------------------------
+Implemented tiled wall rendering for dungeon fields (poison, energy,
+fire, sleep) matching xu4's behavior.
+
+In xu4, tiles with tiledInDungeon="true" fill the entire corridor
+opening at their distance with a repeated tile pattern. In text mode,
+the GEM.ASP glyph (char+attr) for the field is repeated to fill a
+square area centered in the viewport.
+
+Fill sizes match xu4's EGA lscale values:
+  Distance 0: 22×22 characters (full corridor opening)
+  Distance 1: 14×14 characters
+  Distance 2: 6×6 characters
+  Distance 3: 3×3 characters
+  Distance 4: 1×1 character
+
+The glyph is looked up from GEM.ASP using the tile's ultimaId
+(poison=68, energy=69, fire=70, sleep=71).
+
+Non-tiled dungeon objects (chests, orbs, monsters, altars, etc.)
+continue to render as 4×4 tile from MYSHAPES.ASP centered at the
+appropriate depth.
+
+File changed: src/dungeonview.cpp (DungeonView::drawInDungeon)
+
+
+2026-08-09: Combat Focus Indicator - Inside Corners with Blink
+----------------------------------------------------------------
+Changed the active player focus indicator in combat to match xu4:
+
+Before: static (non-blinking) corner characters drawn OUTSIDE the
+4x4 tile (at positions -1 and +4), potentially overlapping adjacent
+tiles.
+
+After: blinking corner characters drawn INSIDE the 4x4 tile (at
+positions 0,0 / 3,0 / 0,3 / 3,3). Blinks on/off using the same
+timing formula as xu4: (currentCycle * 4 / SCR_CYCLE_PER_SECOND) % 2.
+When off-cycle, nothing is drawn (tile shows unobstructed).
+
+File changed: src/tileview.cpp (TileView::drawFocus)
+
+
+2026-08-09: Dungeon Border Display (Level & Direction)
+-------------------------------------------------------
+Implemented dungeon-specific border info matching xu4 behavior:
+
+Top border:
+- In dungeon context, erases the moon phase area (4 chars × 2 rows)
+  and displays "L1"-"L8" centered (dungeon level indicator).
+- On overworld/city, moon phases display as before.
+
+Bottom border:
+- In dungeon context, shows "Dir: North" (facing direction) instead
+  of "Wind North". Already implemented in screenUpdateWind() —
+  verified working.
+
+File changed: src/screen.cpp (screenUpdateMoons)
+
+
+2026-08-09: Dungeon 3D First-Person View
+------------------------------------------
+Implemented text-mode 3D dungeon rendering, adapted from xu4's
+pixel-based dungeonview.cpp using the u5-ega theme layout (separate
+image files per distance level).
+
+Image format and converter:
+- Created png2asp_dung.py: converts 352x352 PNG dungeon images to
+  44x44 character ASP files (BSAVE format, 7-byte header + 3872 bytes).
+  Each 8x8 pixel block is matched against all 256 CP437 glyphs.
+  Fully black blocks output space (0x20) + attr 0x00 (transparent).
+- Created fix_border.py: converts the 2-character border on all sides
+  from transparent (space+0x00) to solid black (full block 0xDB+0x00)
+  so borders are opaque when blitted.
+- Converted all 10 dung*.png and 22 ladder*.png files to .ASP format.
+
+New filetype (FTYPE_ASP_DUNGEON):
+- imageloader.h: added FTYPE_ASP_DUNGEON enum.
+- imageloader.cpp: added loadImage_aspDungeon() — loads 44x44 char+attr
+  data, sets Image cols=44 and transparent=true.
+- config_xml.cpp: registered "image/x-asp-dungeon" string mapping.
+
+Image class extensions (image.h, image.cpp):
+- Added `cols` field (row stride for non-80-column images).
+- Added `transparent` flag — when true, draw/drawSubRect skip cells
+  where ch==0x20 && attr==0x00 (transparent overlay behavior).
+- draw() and drawSubRect() use `cols` instead of hardcoded 80.
+
+Configuration (conf/graphics-text.xml):
+- Added all dungeon image entries matching xu4 u5-ega theme layout:
+  - dungew/dungns (walls from dungeonhall.ASP)
+  - dungew_door/dungns_door (door walls from dungeonhall_door.ASP)
+  - dungback0 (dung0ma.ASP — full viewport back wall)
+  - dungback1 (dung1ma.ASP — distance 1, with lft/rgt fill variants)
+  - dungback2 (dung2ma.ASP — distance 2, with lft/rgt fill variants)
+  - dungback3 (dung3ma.ASP — distance 3, with lft/rgt fill variants)
+  - Door variants (dung0-3_mid_*_door from dung*ma_door.ASP)
+  - All ladder images (up/down/updown × 4 distances × plain/side)
+- All subimage coordinates in character units (xu4 pixel / 4).
+
+Dungeon view rendering (dungeonview.cpp):
+- drawGraphic(): simplified — adds BORDER_WIDTH/HEIGHT offset, calls
+  drawSubRect with character-unit coords. No prescale/SCALED macros.
+- drawWall(): uses subimage x/y directly as draw position. Secondary
+  fill drawn from ega_x2/ega_y2 (now in character units).
+- drawInDungeon(): rewritten for text mode — draws 4x4 tile from
+  MYSHAPES.ASP centered in viewport with distance-based vertical
+  offset, skipping transparent cells. No pixel scaling.
+- cacheGraphicData(): always sets egaLayout=true.
+- dngGraphicInfo[]: all ega_x2/ega_y2 converted from xu4 pixel units
+  to character units (divided by 4).
+
+Screen integration (screen.cpp):
+- Added DungeonView* member to Screen struct.
+- screenMakeDungeonView(): creates DungeonView at (BORDER_WIDTH,
+  BORDER_HEIGHT, VIEWPORT_W, VIEWPORT_H).
+- screenToggle3DDungeonView(): delegates to DungeonView::toggle3D.
+- screenDetectDungeonTraps(): delegates to DungeonView::detectTraps.
+- screenUpdate() FIRST_PERSON branch: calls dungeonView->display().
+
+Event loop fix (event.cpp):
+- run() loop now calls (*updateScreen)() every frame before
+  screenSwapBuffers(), ensuring the dungeon view renders immediately
+  on location change (not just on keypress).
+
+Build system note:
+- The top-level Makefile only does `cp src/tu4 .` — it does NOT
+  recompile. Always build from src/: `cd src && make`
+
+
+2026-08-09: Dungeon Gem View Fix - Avatar Not Shown
+-----------------------------------------------------
+Bug: The player's red dot (CHARSET_REDDOT) was not displayed in the
+dungeon gem view.
+
+Root cause: The dungeon_gem viewport was set to 32x32 in
+graphics-text.xml, but xu4's flood-fill algorithm relies on
+screenViewportTile() coordinate math that wraps dungeon maps (8x8,
+border_behavior=wrap). With viewport width/2 = 16 exceeding 2x the
+map size, map_wrap() double-wrapped and landed on the wrong tile
+coordinate. getTilesAt() then didn't recognize the position as the
+avatar's, so no avatar tile was returned.
+
+Fix: Changed dungeon_gem viewport from 32x32 to 22x22 (matching xu4
+exactly). Repositioned from (8,8) to (13,13) to center within the
+44x44 map area. The coordinate wrapping now works correctly
+(width/2 = 11, single-wrap on 8x8 maps).
+
+File changed: conf/graphics-text.xml
+
+
+2026-08-09: Peer Gem View
+--------------------------
+Implemented the peer gem view for all three map types (world map,
+city/town/castle, and dungeon), adapted from xu4's screenGemUpdate()
+for text-mode rendering.
+
+Asset:
+- GEM.ASP added to graphics/9801-style/. BSAVE format, 263 bytes
+  (7-byte header + 256 bytes payload). Contains 128 char+attr pairs
+  (1 byte character + 1 byte color attribute per tile), indexed by
+  Ultima IV save ID (0-127). Used the same way xu4 uses gem.png.
+
+Configuration (conf/graphics-text.xml):
+- Added gemtiles image: name="gemtiles", filename="9801-style/GEM.ASP",
+  filetype="image/x-asp-charset", tiles="128".
+- Changed gem and dungeon_gem layouts from tileshape 4x4 to 1x1
+  (each tile is 1 character in the gem view).
+- Viewport set to x=9, y=9, width=32, height=32 — matching xu4's
+  32x32 tile gem viewport, centered in the 44-char-wide map area.
+
+World Map / City / Town / Castle (src/screen.cpp):
+- Iterates the 32x32 viewport using screenViewportTile().
+- Converts each tile to ultimaId via usaveIds->ultimaId(tile).
+- If ultimaId < 128: draws char+attr from GEM.ASP data[id*2] and
+  data[id*2+1] using screenPutChar().
+- If ultimaId >= 128: draws black (space with attr 0x00).
+- For world map: viewport centers on the player (BORDER_WRAP).
+- For city/town/castle (32x32 maps): viewport shows the entire map
+  centered on map center (matching xu4 behavior where map size <=
+  viewport size).
+
+Dungeon (src/screen.cpp):
+- Flood-fill traversal from avatar position, copied directly from
+  xu4's algorithm: coordStack with 8-directional expansion, stops
+  at opaque non-walkable tiles (walls block visibility).
+- Each dungeon tile is mapped to a charset glyph:
+    brick_floor    -> CHARSET_FLOOR (char 0x12 from CHARSET.ASP)
+    up_ladder      -> CHARSET_LADDER_UP (char 0x06)
+    down_ladder    -> CHARSET_LADDER_DOWN (char 0x05)
+    up_down_ladder -> CHARSET_LADDER_UPDOWN (char 0x04)
+    chest          -> '$' yellow (attr 0x0E)
+    ceiling_hole   -> 'T' white
+    floor_hole     -> 'T' white
+    magic_orb      -> CHARSET_ORB (char 0x0F)
+    fountain       -> 'F' light blue (attr 0x09)
+    secret_door    -> CHARSET_SDOOR (char 0x02)
+    brick_wall     -> CHARSET_WALL (char 0x03)
+    dungeon_door   -> CHARSET_ROOM (char 0x0E)
+    avatar         -> CHARSET_REDDOT (char 0x01)
+    dungeon_room   -> CHARSET_ROOM (char 0x0E)
+    dungeon_altar  -> CHARSET_ANKH (char 0x00)
+    energy_field   -> '^' light magenta (attr 0x0D)
+    fire_field     -> '^' light red (attr 0x0C)
+    poison_field   -> '^' light green (attr 0x0A)
+    sleep_field    -> '^' light cyan (attr 0x0B)
+- Charset glyphs for codes < 32 are looked up from CHARSET.ASP
+  (char+attr pair at index*2), matching xu4's charsetInfo approach.
+- weAreDrawingTheAvatarTile flag prevents duplicate avatar rendering
+  in repeating dungeon maps.
+
+Build:
+- Added #include <utility> for std::pair.
+- Added #include "savegame.h" for UltimaSaveIds::ultimaId().
+- Compiles cleanly with no errors.
+
+Bug fix during testing (imageloader.cpp):
+- loadImage_aspCharset() was hardcoded to read 512 bytes (256 entries
+  × 2 bytes), but GEM.ASP only has 128 entries (256 bytes payload).
+  The read failed and returned NULL, causing gem view to show all
+  black. Fixed by parameterizing the tile count: now accepts a
+  tileCount argument (passed from the XML 'tiles' attribute via the
+  loadImage dispatch). CHARSET.ASP (tiles=256) and GEM.ASP (tiles=128)
+  both load correctly.
+
+Screen clear area fix:
+- The 44x44 black clear before gem rendering now starts at (2,2) in
+  0-based screen coordinates, matching BORDER_WIDTH=2, BORDER_HEIGHT=2
+  (the map area defined by START.ASP border frame).
+- Gem viewport positioned at (8,8) — centering the 32x32 gem view
+  within the 44x44 map area: offset = 2 + (44-32)/2 = 8.
+
+
+2026-08-07: Bug Fix
+--------------------
+Stats area (Ztats) row spacing:
+- Fixed showMixtures() and showItems(): both used pre-increment
+  (line += 2 inside the textAt() call) so the first visible entry
+  was drawn at row 2 instead of row 0. Changed to draw at the
+  current line first, then increment afterward, so lists start
+  from the top of the panel like the other stats views.
+
+Text cursor:
+- Fixed TextView::drawCursor() to use drawChar(31 - cursorPhase, ...)
+  matching xu4 exactly, instead of hardcoded CP437 block characters
+  (0xDB/0xB2/0xB1/0xB0). The cursor blink glyphs (chars 28-31) now
+  correctly come from CHARSET.ASP, so edits to those characters in
+  the charset file are reflected in the cursor.
+
+Moon phase display:
+- Moved MOON_TRAMMEL_X one character to the right (21 -> 22); right
+  moon (Felucca) position unchanged.
+
+Intro title animation:
+- PRESENT now reveals together with the final slide-up step of
+  ORIGIN SYSTEMS INC, instead of after the whole ORIGIN animation
+  finishes. Matches the original DOS intro where both animations
+  complete simultaneously (one text sliding up, PRESENT appearing
+  at the same moment) rather than sequentially.
+
+Stats area:
+- Fixed highlightPlayer() to use player*2 for row position, matching
+  the doubled Y spacing in the party overview. Previously highlighted
+  the blank row between entries instead of the actual player row.
+
+Tile animation:
+- phantom_flicker corrected to match xu4 exactly: random="50" belongs
+  on the <transform type="frame"> element, not on the <tileanim>
+  itself. (graphics-text.xml)
+
+View highlighting (spell/moongate color inversion):
+- Changed View::drawHighlighted() from swapping fg/bg nibbles to
+  XOR 0xFF on the attribute byte, matching xu4's per-channel RGB
+  inversion (255-R,255-G,255-B) translated into EGA 4-bit color
+  space: black<->white, blue<->yellow, red<->cyan, etc.
+- Added highlightActive() check (moved out of #ifdef USE_GL in
+  view.h) in screenUpdate() so the inversion persists correctly
+  across redraws during the wait_msecs() loop (spell/gate effects).
+
+Combat visual effects (projectile / hit flash):
+- Implemented screenTileUpdate() properly (was previously a stub
+  returning true without drawing anything), matching xu4's non-GPU
+  path: redraws the specific tile including any annotation (flash)
+  at that position via view->drawTile()/drawFocus(). This is what
+  makes flashTile() (used for projectiles, hits, misses) actually
+  visible -- previously the annotation was added to the map but
+  never rendered before the wait/removal.
+
+Menu redraw architecture (U5 reagent mixing shortcut letters):
+- Root cause: MenuController::keyPressed() called view->clear() before
+  menu->show() to fix a stale-character bug (e.g. "Off"->"On" leaving
+  a trailing "f") for the Configure menu family. In original xu4, this
+  clearing is instead done by redrawing the BKGD_OPTIONS_TOP/BTM
+  background images -- which tu4 intentionally does not do anymore
+  (that redraw was removed earlier to stop the title/signature area
+  from being overwritten). view->clear() was tu4's substitute for that
+  missing background redraw, but it also wiped the reagent-mixing
+  shortcut letters (A-H), which xu4 draws separately from the menu
+  items at column 0 -- something the real xu4 never has a problem with
+  since it never calls view->clear() there.
+- Fix: added a virtual MenuController::redrawMenu() hook, called from
+  keyPressed() in place of the previous inline clear+show. Default
+  implementation keeps view->clear()+menu->show() (no behavior change
+  for Configure/Video/Sound/Gameplay/etc. menus). ReagentsMenuController
+  overrides redrawMenu() to call menu->show(view) without clearing,
+  then redraws the A-H shortcut letters itself -- keeping both menu
+  systems faithful to their respective correct behavior without
+  cross-contaminating the shared MenuController code path.
+- Verified: Configure menu (item show/hide on Game Enhancements
+  toggle) and U5 reagent mixing (shortcut letters surviving cursor
+  navigation) both confirmed working with no regressions.
+
+
+2026-08-04 (evening): Combat, Animation, Stats & Polish
+---------------------------------------------------------
+Combat focus indicator:
+- Simplified to just 4 corner box characters (┌ ┐ └ ┘) for minimal
+  coverage of surrounding tiles.
+
+Combat projectile/hit flash:
+- Implemented screenTileUpdate() matching xu4 non-GPU path: redraws
+  individual tiles with annotations (projectile, hit/miss flash).
+  Fixes invisible projectiles and hit effects during combat.
+
+Screen shake (tremor):
+- Implemented screenShake() using vertOffset in scrState.
+  renderTextBuffer() shifts display down by 1 char row (filling top
+  with black) when offset is set. Alternates offset on/off for the
+  specified iterations at shakeInterval timing. Matches xu4 pattern.
+- Tested with Tremor spell — works correctly.
+
+Highlight (spell/moongate inversion):
+- Added highlightActive() check in screenUpdate() after tile drawing,
+  calls view->update() to re-apply color inversion during wait_msecs
+  loop. Moved highlightActive() outside #ifdef USE_GL in view.h.
+
+Color alternation animation (ATYPE_COLOR_ALT):
+- New animation type for campfire: alternates color attribute at a
+  specific cell position without changing the character.
+- Added ATYPE_COLOR_ALT to tileanim.h enum and var union (colorAlt).
+- Implemented in tileanim.cpp with toggle logic matching ATYPE_CHAR_ALT.
+- XML parser case 5 (char_color_alt) now creates ATYPE_COLOR_ALT.
+- graphics-text.xml campfire changed to: type="char_color_alt" x="2"
+  y="3" altcolor="6" (red to orange flicker).
+
+Word wrap in message area:
+- Rewrote screenMessageN with word-wrap logic from xu4: checks if
+  word fits on current line, wraps to next line at word boundary
+  instead of mid-word. Includes proper handling of \b, \r, 0x12,
+  color codes, and space/tab.
+
+screenShowChar charset support:
+- Added charset lookup for chars < 32 in screenShowChar(), matching
+  the same pattern used in screenMessageN and TextView::drawChar.
+
+Stats area (Ztats):
+- STATS_AREA_WIDTH doubled to 30.
+- All stats views use doubled Y spacing (line += 2).
+- Player details shifted right by 7 chars (ox=7) for centering.
+- Reagents menu items Y positions use row += 2 spacing.
+- Reagent shortcut letters aligned to menu item Y positions.
+
+Wind display:
+- Implemented screenUpdateWind() matching xu4: shows "Wind <dir>"
+  on overworld, "Dir: <dir>" in dungeons.
+- Called from screenUpdate() after map rendering.
+- Positioned at WIND_AREA_X=18, Y=47, W=10 (centered under map).
+
+Input responsiveness:
+- Added screenSwapBuffers() after updateScreen() in key handler
+  to present each keypress immediately.
+
+
+2026-08-03 (evening): UI Polish, Game Screen & Input Fixes
+------------------------------------------------------------
+Intro menu:
+- Rewrote main menu drawing to match introt.c exactly: tagline in
+  gray (color 7), "Options:" in white (15), menu items with first
+  letter yellow (14) rest white (15), all centered in 76-wide area.
+- Reduced row spacing: 1 blank row between tagline/options/items.
+- Configure menu: changed title from "XU4" to "TU4", repositioned
+  extendedMenuArea to (22, 27, 36, 18) for centering, blanks map
+  area before showing, removed BKGD_OPTIONS_TOP/BTM redraws (no
+  longer shifts title screen up — 50 rows provides enough space).
+- Menu clear: added view->clear() before menu->show() in both
+  runMenu() and MenuController keypress handler to fix "onf"
+  artifact when toggling boolean values and to properly hide
+  invisible menu items.
+- Charset support: added CHARSET.ASP (256 char+attr pairs) for
+  custom U4 glyph rendering. Characters 0-31 looked up from
+  CHARSET.ASP in both TextView::drawChar() and screenMessageN().
+  Added image/x-asp-charset filetype, FTYPE_ASP_CHARSET loader.
+- Bullet rendering: chars 8 and 15 in configure menu now render
+  from CHARSET.ASP with correct colors instead of hardcoded.
+
+Game screen message area:
+- Rewrote screenMessageN/screenCrLf to use c->col and c->line
+  directly (matching original xu4) instead of separate textCursorX/Y.
+  Draws at TEXT_AREA_X + c->col, TEXT_AREA_Y + c->line.
+- TEXT_AREA_W doubled to 32, TEXT_AREA_H doubled to 24 for 80×50.
+- Scroll-by-2: screenCrLf scrolls message area up by 2 rows when
+  bottom is reached, providing visual gap between messages.
+- screenPrompt: now uses screenMessage("%c", CHARSET_PROMPT) matching
+  xu4, with c->col == 0 check.
+- Control character handling: added \b (backspace), \r (CR), 0x12
+  (cursor right), and FG_* color codes to screenMessageN, matching
+  original xu4. Fixes gray moon-phase characters appearing in text.
+- Input positioning: c->col/c->line now properly synced so
+  ReadStringController places input text at correct location.
+
+Game screen layout (u4.h):
+- BORDER_WIDTH/HEIGHT: 8 → 2
+- CHAR_WIDTH/HEIGHT: 8 → 1 (text mode uses character coordinates)
+- TILE_WIDTH/HEIGHT: hardcoded to 4 (4×4 char tiles)
+- TEXT_AREA_X: 24 → 48, TEXT_AREA_Y: 12 → 24
+- TEXT_AREA_W: 16 → 32, TEXT_AREA_H: 12 → 24
+- STATS_AREA_Y: 1 → 2, STATS_AREA_HEIGHT: 8 → 16
+- WIND_AREA: X=18, Y=47, W=10 (centered under map, no border erase)
+
+Wind direction display:
+- Implemented screenUpdateWind() matching xu4 (shows "Wind North"
+  etc. or "Dir:" in dungeons).
+- Called from screenUpdate() after map rendering.
+
+Combat focus indicator:
+- Changed from full box border to corner-only brackets: each corner
+  draws the corner character plus one adjacent horizontal/vertical
+  char, leaving most surrounding tiles uncovered.
+
+Input responsiveness:
+- Re-enabled VSYNC (SDL_RENDERER_PRESENTVSYNC) for proper 60 FPS
+  frame pacing.
+- Set initial frameSleep to 0 (VSYNC handles timing).
+- Added screenSwapBuffers() call immediately after updateScreen()
+  in keypress handler, so each key event is presented before
+  processing the next queued event. Fixes "teleporting" when
+  holding arrow keys.
+
+Line of sight:
+- Implemented DOS LOS algorithm from original xu4 (propagation-based
+  visibility from center tile outward, checking opaque blocking).
+
+Abacus/cards (graphics-text.xml):
+- Card originTable: set to (4, 4, 56) matching subimage positions.
+- Bead properties: y=47, height=4, left=34, ystart=6, yspacing=4.
+- xspacing formula: beadW (no +1 gap).
+- Moongate subimage: y changed to 39, opening animation fixed to
+  grow upward from bottom (top rows of source placed at bottom of
+  destination, expanding up — matching xu4 logic).
+
+Asset files:
+- Copied ABACUS.ASP to graphics/9801-style/
+- Copied and truncated CHARSET.ASP (519 bytes) to graphics/9801-style/
+
+
+2026-08-03: Tile Animation, Map Rendering & Game Screen
+---------------------------------------------------------
+Tile ID mapping fix (tileview.cpp):
+- MYSHAPES.ASP is indexed by U4 save ID (0-255), not module tile ID.
+  getTileData() now uses UltimaSaveIds::ultimaId() to convert module
+  ID + frame to the correct U4 index before indexing into shapes data.
+  This fixed moongate, pirate ship, dragon, rogue, and all other
+  multi-frame tiles showing wrong graphics on the intro map.
+- Same fix applied to the MAP expand animation in intro.cpp's
+  updateTitle() which directly accesses shapes data.
+
+Tile animation system (tileanim.cpp):
+- Implemented text-mode TileAnimTransform::draw() with real animation:
+  - ATYPE_SCROLL: vertical row shifting using screenState()->currentCycle,
+    with timing divisor /2 to match introt.c's ~500ms per row shift.
+  - ATYPE_FRAME: in intro mode auto-cycles var.frame.current; in game
+    mode uses mapTile.frame from the flourishAnim Animator system.
+  - ATYPE_INVERT: draws base tile (flags are cosmetic in text mode).
+- Implemented TileAnim::draw() with full xu4 logic: random gate,
+  context checks (ACON_FRAME, ACON_DIR), and drawsTile() dispatch.
+- TileView::drawTile() now delegates to TileAnim::draw() when the
+  tile has an animation configured, matching original xu4 pattern.
+- Fixed tileanim.h declarations to match implementations (both the
+  new text-mode (int,int,...) signatures and legacy Image* stubs).
+
+Tile animation loading fix (screen.cpp):
+- Added Tileset::loadImages() call in screenInit() after tileanims
+  are loaded. This was missing — without it, Tile::loadImage() was
+  never called so tile->anim was always NULL, preventing all tile
+  animations from working in both intro and game.
+
+Build system fix:
+- Switched make.config from UI=sdl3 to UI=sdl2 (SDL3_mixer not
+  available on this Linux Mint system; SDL2 + SDL2_mixer are).
+- Fixed tileanim.h TileAnimTransform::draw and TileAnim::draw
+  signature mismatches that broke dungeonview.cpp compilation.
+
+Intro signature timing:
+- Adjusted delay formula to 3000/numSigCoords - 10 to compensate
+  for per-frame overhead in EventHandler::wait_msecs, bringing
+  total signature duration closer to introt.c's 3 seconds.
+
+Intro menu positioning for 80x50:
+- Doubled menuArea coordinates: (2, 26, 76, 22)
+- Doubled extendedMenuArea: (4, 20, 72, 26)
+- Doubled questionArea: (0, 38, 80, 12)
+- Centered menu text horizontally within 76-wide area.
+- Rewrote about() screen to match introt.c content:
+  Centered "TU4 TU4-1.0" title, followed by description,
+  license text, and copyright block (ASCII Dragon, xu4 Team,
+  Lord British), all auto-centered.
+
+Intro card/abacus positioning:
+- Fixed originTable from pixel values (12,12,218) to text-mode
+  character positions (4,4,56) matching graphics-text.xml subimage
+  coordinates for card placement.
+- Updated graphics-text.xml abacus bead properties: y=47, height=4,
+  left=34, ystart=6, xspacing changed to beadW (no +1 gap).
+
+Intro moongate animation fix:
+- Fixed opening animation to match original xu4: draws top gateH
+  rows of source at screenBottom-gateH (growing upward from bottom),
+  instead of incorrectly reading bottom rows.
+- Changed moongate subimage y from 48 to 39 in graphics-text.xml
+  to point to correct source data in TREE.ASP.
+
+Game screen rendering (NEW):
+- Implemented Image::draw(x,y): blits full ASP screen data to the
+  80x50 text buffer. START.ASP borders now display on game start.
+- Implemented Image::drawSubRect(x,y,rx,ry,rw,rh): draws a
+  sub-rectangle from ASP data to the text buffer.
+- Created Screen struct in screen.cpp with blockingGrid[] and
+  screenLos[] arrays. Allocated as xu4.screen in screenInit().
+- Implemented screenViewportTile(): computes map tiles from current
+  location with proper coordinate wrapping and out-of-bounds padding.
+- Implemented screenUpdate(): renders the 11x11 tile map with
+  line-of-sight (currently stub: all tiles visible).
+- Fixed TileView::drawTile(vector) to draw tiles.front() (topmost
+  layer: avatar/creature/object) instead of tiles.back() (terrain).
+
+Game screen coordinate fixes (u4.h):
+- BORDER_WIDTH/HEIGHT: 8 → 2 (character border in text mode)
+- CHAR_WIDTH/HEIGHT: 8 → 1 (positions are in characters, not pixels)
+- TILE_WIDTH/HEIGHT: hardcoded to 4 (4x4 char tiles)
+- TEXT_AREA_X: 24 → 48, TEXT_AREA_Y: 12 → 24 (doubled for 80x50)
+- STATS_AREA_Y: 1 → 2, STATS_AREA_HEIGHT: 8 → 16 (doubled for 50 rows)
+
+Asset files:
+- Copied ABACUS.ASP to graphics/9801-style/
+
+Known issues (TODO):
+- NPC frame animation not visually cycling in towns (startFrameAnim
+  registers successfully, but visual change may be too subtle or
+  frame values not propagating correctly through drawTile path).
+- Debug printf statements still present in tileanim.cpp, tile.cpp,
+  game.cpp, intro.cpp (to be removed after NPC anim investigation).
+- screenFindLineOfSight is a stub (all tiles visible); needs proper
+  DOS LOS algorithm ported from original xu4.
+- waterScroll/animCycle counters in IntroController are now unused
+  (animation handled by TileAnim::draw via screenCycle) — to remove.
+
+
+2026-08-02: Text Mode Engine Port
+-----------------------------------
+Major restructuring of xu4 codebase for text-mode (80x50, 16-color,
+CP437) rendering.
+
+Build system:
+- Renamed binary from xu4 to tu4
+- Added SDL2 backend support (UI=sdl2 in make.config)
+- Added SDL3 backend files (screen_sdl3, event_sdl3, sound_sdl3)
+- Removed scale.cpp (pixel filters not needed)
+- Removed Allegro dependency for text-mode build
+- VERSION changed to TU4-1.0
+
+New files created:
+- src/screen_sdl2.cpp    - SDL2 display backend (renders text buffer)
+- src/screen_sdl3.cpp    - SDL3 display backend
+- src/event_sdl2.cpp     - SDL2 input backend
+- src/event_sdl3.cpp     - SDL3 input backend
+- src/sound_sdl2.cpp     - SDL2_mixer audio backend
+- src/sound_sdl3.cpp     - SDL3_mixer audio backend
+- src/tu4.cpp            - Main entry point (replaces xu4.cpp)
+- conf/graphics-text.xml - Text-mode graphics configuration
+- graphics/9801-style/   - PC-9801 inspired text-mode theme
+- graphics/aspencode.py  - SHAPES.ASP → MYSHAPES.ASP converter
+- test_intro.c           - Standalone title animation test
+
+Configuration changes:
+- conf/config.xml references graphics-text.xml
+- graphics-text.xml defines ASP file imagesets, layouts, animations
+- Imageset named "9801-style" with all ASP file paths
+- Title animation subimages defined (data-driven regions)
+- Beastie animation frames (36 subimages from ANIMATE.ASP)
+- Tile animation set adapted for 4x4 character tiles
+- egaPalette.xml kept (provides RGB values for renderer)
+
+Settings changes (settings.cpp/h):
+- Removed: filter, gamma fields and DEFAULT_FILTER, DEFAULT_GAMMA
+- Renamed: videoType → textStyle, DEFAULT_VIDEO_TYPE → DEFAULT_TEXT_STYLE
+- Default text style: "9801-style"
+- Removed dependency on screenGetFilterNames()
+
+Display layer rewritten:
+- image.h/cpp      - Thin ASP data container (no pixel operations)
+- imageloader.cpp  - Loads ASP files (BSAVE format), stubs pixel formats
+- imagemgr.cpp     - Simplified for ASP loading (241 lines vs 900)
+- screen.cpp       - 80x50 text buffer, screenPutChar/screenGetChar API
+- view.cpp         - Character coordinates, fg/bg swap for highlight
+- textview.cpp     - Direct char+attr writes, EGA color mapping
+- tileview.cpp     - 4x4 char tiles from MYSHAPES.ASP data
+- imageview.cpp    - Blits ASP screen data to text buffer
+- progress_bar.cpp - Text-mode [█░] bar
+
+Intro changes (intro.cpp/h):
+- Removed filter/gamma from configure menu
+- Renamed "Graphics Scheme" to "Text Style" (textStyle field)
+- Title animation rewritten as data-driven state machine
+  (reads region positions from XML subimages)
+- drawBeastie() reads frames from ANIMATE.ASP
+- animateTree() uses ASP subimage data for moongate
+- drawAbacusBeads() uses ASP subimage data for beads
+- Removed AnimElement, AnimPlot structs and titles vector
+- Removed all GPU_RENDER conditional blocks
+- Removed all Image::enableBlend, screenUploadToGPU calls
+- Removed pixel SCALED/prescale operations
+
+Tile system:
+- tile.cpp loadImage() stubbed (tiles from MYSHAPES.ASP by index)
+- tileanim.cpp draw methods stubbed (animation in tileview.cpp)
+
+Game logic files compiled with minimal stubs:
+- dungeonview.cpp: videoType → textStyle, pixel drawOn stubbed
+- codex.cpp: Image32 pixel animation stubbed
+- game.cpp: screenImage->fill replaced with screenEraseTextArea
+
+First successful run (milestone):
+- tu4 binary builds (67 object files, 0 errors), links, and RUNS
+- SDL2 window opens: "tu4 - Ultima IV Text Mode"
+- No crashes, no fatal image-load errors; intro loop runs to timeout
+
+Bugs found and fixed during first-run debugging:
+- ImageMgr constructor never called internSymbols() to bind the 45
+  ImageSymbols fields (sym.tiles, sym.title, sym.options_top, etc)
+  to their XML names -- added the same internSymbols() call used by
+  original xu4.
+- ImageMgr::notice() (settings-change listener) was a no-op stub;
+  it must set baseSet from settings->textStyle. Constructor must
+  call notice() once directly at startup (matches original xu4
+  pattern) and register via gs_listen(); destructor must gs_unplug().
+- ImageMgr::scheme() only checked the imageSets cache and returned
+  NULL on miss; needed the lazy-load fallback that calls
+  config->newScheme() by matching schemeNames() and caches the result
+  (matches original xu4 pattern).
+- imageview.cpp draw() overloads used subimage->x/y directly as
+  0-based array offsets, but subimage coordinates are stored 1-based
+  (as written in XML) -- both draw(ImageInfo*,...) and
+  draw(Symbol,...) needed -1 correction. Same bug class as the
+  earlier tileview.cpp/intro.cpp fixes.
+- **Pre-existing bug in support/SymbolTable.cpp `intern()`, present
+  in original xu4 too**: stringStore.insert(name, name+len+1) copies
+  one byte PAST the token into the source buffer instead of writing
+  a real '\0' terminator. This corrupts symbolName() lookups for any
+  symbol interned via internSymbols() (batch multi-name string) --
+  the returned name silently runs on into subsequent symbols' bytes
+  until hitting the last real '\0' in the source literal. Fixed by
+  copying exactly `len` bytes then explicitly appending '\0'.
+  This bug was latent in xu4 and only surfaced when tu4's
+  errorLoadImage() path exposed a bad symbolName() result.
+- BKGD_OPTIONS_TOP/BKGD_OPTIONS_BTM (used by configure submenus and
+  INTRO_MENU to redraw a static, non-animated background) were
+  undefined in graphics-text.xml. Added as subimages of the "title"
+  image (crops of the same TITLE.ASP data, no separate file needed),
+  proportionally mapped from the original 200-row pixel crops
+  (y=32/h=128, y=112/h=80) to our 25-row title text area.
+- Intro map/beasties were invisible (black) even though title
+  animation rendered correctly: IntroController's view constructors
+  (menuArea, extendedMenuArea, questionArea, mapArea) still used
+  pixel-space math (x*CHAR_WIDTH, y*CHAR_HEIGHT, BORDER_WIDTH,
+  TILE_HEIGHT*6+BORDER_HEIGHT) left over from the pixel-based engine.
+  Since View/TileView/TextView now take character coordinates
+  directly, mapArea ended up positioned at (8,104) in a 80x50 char
+  grid -- off-screen. Fixed using the character-space position from
+  introt.c's map_ox=2, map_oy=26. Confirmed via screenshot: intro
+  map (trees, water, castles, mountains) and both corner beasties
+  now render correctly inside the border.
+- Title animation flashed by instantly instead of playing the
+  signature/AND/BAR/ORIGIN/PRESENT/scatter/subtitle sequence:
+  timerFired() (unchanged from original xu4) checks
+  `if (updateTitle() == false)` to detect animation completion,
+  because the OLD updateTitle() returned false when finished. Our
+  NEW text-mode updateTitle() state machine returns true when
+  finished (phase 7) and false while still animating -- the
+  opposite convention. This meant the very first tick (still on
+  phase 0, signature drawing) was misread as "animation complete,"
+  instantly jumping to INTRO_MAP. Fixed by flipping the check to
+  `if (updateTitle() == true)`.
+- After the above fix, the title sequence became too SLOW (~16-20s
+  before map appeared), then after a first speed fix attempt (batching
+  multiple chars per tick) it looked CHOPPY instead of flowing smoothly
+  like introt.c. Root cause of both: IntroController::timerFired() is
+  only invoked every ~250ms (EventHandler's gameCyclesPerSecond-derived
+  timerInterval), not the ~42ms animation-frame rate as initially
+  assumed -- so a state-machine that draws "one unit per tick" can
+  never achieve introt.c's actual per-character pacing (which sleeps
+  12-43ms directly between individual draws in a tight blocking loop).
+  Batching multiple characters per external tick to compensate made it
+  fast but visibly chunky ("drawn several characters at once").
+
+  Fixed properly by abandoning the tick-driven incremental state
+  machine entirely and rewriting updateTitle() as a single blocking
+  call that mirrors introt.c's structure exactly: a plain loop that
+  draws one signature coordinate / one BAR column / one ORIGIN or
+  SUBTITLE step at a time, calling screenSwapBuffers() and then a new
+  IntroController::titleWait(msec) helper after every single draw --
+  matching introt.c's per-element SDL_Delay values precisely
+  (signature: 3000/numCoords per coord; BAR: 12ms/column; ORIGIN/
+  SUBTITLE: 100ms/step; TITLE scatter: 5000ms total; 1000ms pauses
+  between named elements; PRESENT: 100ms).
+
+  This blocking call cannot run from timerFired() as originally
+  structured, though: IntroController's own Controller(1) is
+  registered on the SAME TimedEventMgr that titleWait()/wait_msecs()
+  ticks internally to keep other timers alive during the wait, so
+  calling it from inside timerFired() caused unbounded recursion
+  (each wait tick re-fired timerFired() -> updateTitle() ->
+  titleWait() -> tick() -> timerFired() ...), hanging the process.
+  Fixed by moving the one-time call to updateTitle() into present()
+  -- which runs before runController() pushes IntroController onto
+  the timer queue -- so mode is already INTRO_MAP (or later) by the
+  time timerFired() starts getting called at all. timerFired() no
+  longer contains any INTRO_TITLES handling.
+
+  Added IntroController::titleWait(unsigned int) and a new
+  EventHandler::wait_msecs(unsigned int, Controller*) overload (the
+  original single-arg wait_msecs() now just forwards to it with a
+  throwaway Controller) so that keypresses during the blocking title
+  sequence route through IntroController's own keyPressed() ->
+  skipTitles(), matching introt.c's CHECK_TITLE() skip-on-any-key
+  behavior, instead of being silently swallowed by a dummy consumer
+  controller.
+
+  Confirmed via progressive screenshots (t=2s/4s/8s/14s/20s): smooth
+  per-character signature reveal, natural-paced AND/BAR/ORIGIN/PRESENT,
+  ULTIMA IV visibly mid-scatter at t=14s (matching introt.c's random
+  Fisher-Yates look), and full title+map+beasties rendering correctly
+  by t=20s with no hang and no choppy multi-character jumps.
+- Missing map border "expand from center" reveal animation: both the
+  original xu4 intro.cpp (pixel-based MAP AnimType, mapCenter/mapStep
+  blit-widening logic) and introt.c (character-based mapCenterCol/
+  totalSteps=mapW/2 version) implement this as the final title stage
+  before the interactive map/menu begins -- the border starts as a
+  narrow vertical strip at the map's horizontal center and widens
+  outward (left and right simultaneously) one step at a time, revealing
+  map tiles and moving the left/right border edges to match, ending
+  with the complete border frame. This stage was entirely missing from
+  our ported updateTitle() (it jumped straight from SUBTITLE to a fully
+  drawn map with no reveal animation). Added a character-space version
+  adapted from introt.c's approach: mapCenterCol = mapOx + mapW/2,
+  totalSteps = mapW/2 (38 steps for the 76-char-wide intro map), each
+  step widens the reveal window by 1 column on each side, draws only
+  the map tile columns falling inside the window (via mapArea.drawTile
+  per intro map cell), redraws the border's 2-char-wide left/right
+  edges and top/bottom rows at the current window boundary, with a
+  100ms wait between steps (skippable). Finishes by drawing the
+  complete static border frame. Confirmed via screenshots at t=16-25s:
+  border visibly narrow-to-wide, map tiles (water, trees, castles)
+  progressively revealed from center outward, ending in the complete
+  bordered map with beasties -- matching introt.c's behavior.
+- Two follow-up bugs found in the above MAP expand animation: (1) the
+  border was drawn as plain black columns instead of actual border art
+  -- the code read the border glyph from titleAspData at the MOVING
+  destination position (bl/br) instead of the FIXED source columns
+  (0-1 left, 78-79 right) where the border art actually lives in
+  TITLE.ASP, so it just kept re-copying whatever blank content already
+  sat at the shifting edge position. Fixed by reading from the fixed
+  source columns and writing to the moving bl/br destination, matching
+  introt.c's srcColL0/srcColL1/srcColR0/srcColR1 approach exactly.
+  (2) The entire MAP animation block had been accidentally duplicated
+  in a prior edit (an interrupted strReplace call had partially
+  applied), causing the whole expand-from-center sequence to visibly
+  play through twice in a row. Removed the duplicate. Confirmed via
+  screenshot: border now renders as the correct blue-with-white-inner
+  frame style expanding outward once, ending in the proper complete
+  bordered map.
+- Map tiles occasionally appeared to spill past the border edge before
+  it caught up (visible briefly during the expand animation). Root
+  cause: our per-tile reveal check only tested the WHOLE 4-column tile
+  against the reveal window (`if (tileRight < revealLeft || tileLeft >
+  revealRight) continue;`), then drew all 4 columns unconditionally
+  once that coarse check passed -- so a tile straddling the window edge
+  got fully drawn, including the 1-3 columns that were still outside
+  the window and hadn't been "revealed" by the border yet. introt.c
+  instead clips PER COLUMN: after the same coarse tile-skip check, it
+  additionally checks each of the 4 columns individually
+  (`if (screenCol < revealLeft || screenCol > revealRight) continue;`)
+  before drawing that column. Replaced the mapArea.drawTile() call
+  (which always draws the full 4x4 tile with no partial-column option)
+  with a direct per-column draw reading tile data straight from
+  MYSHAPES.ASP via xu4.imageMgr->get(BKGD_SHAPES), matching introt.c's
+  clipping logic exactly. Confirmed via screenshots: tile and border
+  edges now align cleanly with no spillover at any step of the expand.
+
+
+2026-07-30: Intro Menu System (introt.c)
+-----------------------------------------
+- Added main menu after intro map animation appears
+  Menu items: Return to the view, Journey Onward, Initiate New Game,
+  Configure, About
+- Menu covers the full map interior area (inside the border frame)
+- Menu items left-aligned, spaced vertically to fill the area
+- First-letter shortcuts: 'r' = Return to view, 'a' = About
+- Arrow keys + Enter for navigation, Escape returns to map view
+- Only "Return to the view" and "About" are functional; other items
+  are placeholders for now
+
+- Implemented About screen:
+  Displays tu4 version, description, license info, and copyrights
+  Copyright (c) 2026, ASCII Dragon
+  Copyright (c) 2002-2022, xu4 Team
+  Copyright (c) 1987, Lord British
+
+- Skip animation on keypress during title sequence:
+  Pressing any key during the intro title animation instantly renders
+  the full final state (title screen + map) and starts the map
+  animation with music. Menu is NOT shown until Enter is pressed again.
+  Title fade sound is halted immediately on skip.
+
+- Moved TITLE.ASP to graphics/ directory (alongside MYSHAPES.ASP)
+- Moved MYSHAPES.ASP loading to early init for skip_to_menu support
+
+- Alt-X quits the game immediately from anywhere (title animation,
+  map animation, menu, about screen)
+
+
+2026-07-26: Intro Animation Engine (introt.c)
+----------------------------------------------
+Initial implementation of tu4 text-mode intro sequence.
+
+Display engine:
+- 640x400 SDL2 window emulating DOS VGA 80x50 text mode
+- CP437 8x8 font rendering (cp437_8x8.h)
+- EGA/VGA 16-color palette
+- Nearest-neighbor pixel scaling (--scale 1-4)
+- Command line options: --delay (startup pause), --scale (window size)
+
+Title animation sequence (from TITLE.ASP BSAVE data):
+- Lord British signature: animated stroke-by-stroke using sigdata.txt
+  coordinates (~3 seconds total, matching xu4 timing)
+- "AND" text: instant reveal after 1 second pause
+- Tilde bar (row 8): animated left-to-right, cols 20-60
+- "ORIGIN SYSTEMS INC" (rows 5-7): slide-up animation from bottom
+- "PRESENT" (row 9): instant reveal
+- "ULTIMA IV" title (rows 9-19): random scatter/fade-in over ~5 seconds
+  using Fisher-Yates shuffle with fixed seed for reproducibility
+- "Quest of the Avatar" subtitle (rows 20-23): expand from center
+  animation (top/bottom halves spread apart)
+
+Map animation:
+- 19x5 tile map using MYSHAPES.ASP tile data (4x4 character tiles)
+- Map expanding window reveal: border expands from center outward
+  revealing tiles progressively
+- Water tile scroll animation (vertical row shifting, 3 water tile types)
+- Scripted object movement (548-byte script table from TITLE.EXE)
+  supporting 15 animated objects (moongate, pirate ship, player ship,
+  rogues, fighters, mages, sea serpent, daemon, dragon, etc.)
+- Auto-animation for creature tiles (frame cycling)
+- Script commands: set position, delete object, sleep, loop restart
+- ~10 FPS animation loop matching xu4 intro timing
+
+Audio:
+- SDL2_mixer for audio playback
+- Title fade sound effect (sound/title_fade.ogg) during ULTIMA IV reveal
+- Intro map music (mid/towne_2.it, Impulse Tracker format, looped)
+
+2026-08-03: ATYPE_CHAR_ALT text-mode tile animation
+-----------------------------------------------------
+Added new animation type ATYPE_CHAR_ALT for alternating a single
+character at a fixed position within a text-mode tile. Used for flag
+animations on buildings and ships.
+
+tileanim.h:
+- Added ATYPE_CHAR_ALT to TileAnimType enum.
+- Added charAlt struct to TileAnimTransform union:
+    int16_t x, y;       // character cell position within the tile
+    uint8_t char1, char2;   // the two characters to alternate between
+    uint8_t current;    // toggle state (0 = char1, 1 = char2)
+
+tileanim.cpp:
+- Implemented ATYPE_CHAR_ALT in TileAnimTransform::draw():
+  Draws the base tile, toggles current state, then overwrites the
+  character at (x,y) with char1 or char2, preserving the original
+  attribute/color byte from the tile data.
+- Updated drawsTile() to recognize ATYPE_CHAR_ALT (it draws full tile).
+- Timing: controlled by random="50" on the parent TileAnim element,
+  giving 50% chance per tick at 4Hz (~2 toggles/sec), matching xu4's
+  flag invert animation rate.
+
+config_xml.cpp:
+- Parser case 5 ("char_alt") now creates ATYPE_CHAR_ALT transform
+  reading x, y, char1, char2 attributes from XML.
+
+conf/graphics-text.xml (tileanimset "9801-style"):
+- Replaced width/height attributes with char1/char2 (decimal 0-255).
+- cityflag:   x=3, y=2, char1=126 (~), char2=253 (²)
+- lcbflag:    x=3, y=1, char1=126 (~), char2=253 (²)
+- castleflag: x=3, y=1, char1=126 (~), char2=253 (²)
+- shipflag West (frame 0):  x=2, y=1, char1=126 (~), char2=135 (ç)
+- shipflag East (frame 2):  x=3, y=1, char1=126 (~), char2=253 (²)
+- pirateflag West (frame 0): x=2, y=1, char1=126 (~), char2=135 (ç)
+- pirateflag East (frame 2): x=3, y=1, char1=126 (~), char2=253 (²)
+- North/South frames: no animation (empty context).
+- campfire: uses char_alt x=2, y=2, char1=42 (*), char2=94 (^).
+
+2026-08-14: Fix use-after-free crash in moveObjects (world map)
+---------------------------------------------------------------
+Fixed a SIGSEGV crash when a creature's ranged attack destroys another
+creature that was already marked as the attacker for that turn.
+
+Scenario: A hostile creature (e.g. squid) is adjacent to the player and
+set as `attacker` in moveObjects(). Later in the same loop, a sea
+serpent's specialAction() fires a ranged attack that hits the squid.
+creatureRangeAttack() calls removeObject() which deletes the squid.
+moveObjects() then returns a dangling pointer. gameCreatureAttack()
+dereferences it → crash at game.cpp:3107.
+
+Fix: After the moveObjects loop, verify the attacker pointer is still
+present in the objects deque (via objectPresent()) before returning it.
+If it was destroyed, return NULL.
+
+Note: This is a latent bug also present in xu4.
+
+File changed: src/map.cpp (Map::moveObjects)
+
+2026-08-14: Fix F-key virtue cheat when karma is 0
+---------------------------------------------------
+The ctrl-c F1-F8 "Improve virtue" cheat did nothing when karma was
+already 0 (avatar state, set by "Full Virtues" cheat). Now pressing
+F1-F8 when karma==0 sets it to 99, allowing re-testing of shrine
+elevation.
+
+File changed: src/cheat.cpp
+
+2026-08-15: Campfire animation speed fix
+-----------------------------------------
+Campfire flicker was too fast — toggling every tick (4Hz) because it
+had no random attribute. Added random="30" to the campfire tileanim in
+graphics-text.xml, so it only fires 30% of ticks (~1.2 toggles/sec).
+Also changed transform type from char_color_alt to char_alt with
+altchar="5" (matching ship flag animation style).
+
+File changed: conf/graphics-text.xml
+
+2026-08-15: Intro new game text moved 20 chars right
+-----------------------------------------------------
+The questionArea (story text, gypsy questions) was at INTRO_TEXT_X=0
+with width 80. Now that the screen is twice as wide, text appeared
+flush-left. Moved to INTRO_TEXT_X=20, INTRO_TEXT_WIDTH=40 to center
+the text in the visible area.
+
+Also cover the TREE.ASP subimage source regions (moongate + items at
+cols 0-5, rows 38-41) that became visible after the text shift. These
+are blanked after drawing BKGD_TREE at storyInd 0 and 11.
+
+File changed: src/intro.cpp
+
+2026-08-15: Fix cursor left behind during intro screens
+--------------------------------------------------------
+Cursor remnants appeared when transitioning between prompts (e.g. name
+entry → gender question). The tu4 disableCursor() and setCursorPos()
+were restoring a saved char/attr that became stale after background
+redraws. Changed to match xu4 behavior: erase cursor by drawing a
+space instead of restoring saved state.
+
+File changed: src/textview.cpp
+
+2026-08-15: Regenerate MYSHAPES.ASP and MOONPHAS.ASP
+-----------------------------------------------------
+Re-ran aspencode.py to convert updated SHAPES.ASP from QB into
+graphics/9801-style/MYSHAPES.ASP. Copied MOONPHAS.ASP from QB and
+truncated to 71 bytes (matching expected format: 7-byte BSAVE header +
+64 bytes moon phase data).
+
+Files changed: graphics/9801-style/MYSHAPES.ASP, graphics/9801-style/MOONPHAS.ASP
+
+2026-08-15: Dungeon trap graphics (falling rock + pit)
+-------------------------------------------------------
+Created TRAPS.ASP from u5ega/trap.png via png2asp_dung.py (resized
+176x176 to 352x352 for 8px/cell conversion). Added dung_traps image
+entry in graphics-text.xml with 6 subimages (dung0_hole through
+dung2_hole, dung0_pit through dung2_pit) adapted to 44x44 char grid.
+
+Trap detection was already implemented in code (indices 78-83 in
+dngGraphicInfo, timed random detection via detectTraps()). Only the
+ASP file and XML subimage definitions were missing.
+
+Tested: Deceit level 2 (falling rock), Hythloth level 7 (pit trap).
+
+Files changed: conf/graphics-text.xml, graphics/9801-style/TRAPS.ASP
+
+2026-08-16: Scaled dungeon NPC rendering at distance 1 (16×16 chars)
+----------------------------------------------------------------------
+Added large-format (16×16 character) art for dungeon corridor monsters
+and objects at distance 0-1 in the 3D first-person dungeon view. Uses
+DUNGNPC0.ASP instead of the small 4×4 MYSHAPES.ASP tile.
+
+Matches xu4 behavior: xu4 uses nscale_vga[1]=8 (4× scale = 64×64 pixels
+= 36% of 176px viewport) at distance 1 when videoType != "EGA" (the
+default). The videoType setting is independent of the graphics scheme
+(u5ega still uses VGA scale tables). TU4's 16×16 chars in a 44-char
+viewport = 36% — identical proportions.
+
+Positioning: tile top at viewport vertical center, extending downward
+(grounded appearance), matching xu4.
+
+Monsters supported (from randomForDungeon, 4 animation frames each):
+  Rat, Bat, Spider, Ghost, Slime, Troll, Gremlin,
+  Reaper, Insect Swarm, Gazer, Phantom
+
+Objects supported (single frame each):
+  Fountain (tile 44, with scroll animation), Chest (tile 45),
+  Magic Orb (tile 46)
+
+Asset: graphics/9801-style/DUNGNPC0.ASP (24,583 bytes)
+  - BSAVE format, 48 tiles × 512 bytes (16×16 chars × 2 bytes/cell)
+  - Tile N at offset 7 + N*512
+  - Monsters: 4 frames each, base index = monsterOrder × 4
+  - Objects: single frame at indices 44-46
+
+Config: conf/graphics-text.xml
+  - image name="dung_npc0", filetype="image/x-asp-tiles", tiles="768"
+
+Code: src/dungeonview.cpp, src/dungeonview.h
+  - DungeonView caches dungNpc0Data pointer and dungNpcTileIndex[256]
+    lookup table (maps module TileId → DUNGNPC0 base tile index)
+  - drawInDungeon() at distance <= 1 renders 16×16 tile centered
+    horizontally, top at viewport center
+  - Fountain scroll animation at distance 1 (row shift using
+    currentCycle/2, wrapping at 16 rows, scrolls downward)
+  - Falls through to 4×4 MYSHAPES.ASP for non-NPC tiles or if
+    DUNGNPC0 data unavailable
+
+2026-08-17: Tile transparency system
+--------------------------------------
+Implemented tile transparency matching xu4's "Transparency Hack"
+setting. When enabled (Game Enhancements → Transparency Hack = On),
+NPC/creature tiles overlay terrain with their black background cells
+skipped, showing the terrain beneath.
+
+Implementation uses a global flag (g_tileTransparent) checked in the
+two low-level drawing functions (animDrawTile, animDrawTileScroll) and
+the static tile path in drawTile(). No signature changes needed.
+
+Transparency marker: space (0x20) + attr 0x00.
+  - NPC/creature tiles (31-255) use space+0x00 for background cells
+  - Terrain tiles (0-30) use full block (0xDB)+0x00 for solid black
+  - Field tiles (68-71) use full block+0x00 (opaque, not transparent)
+
+drawTile(vector) iterates all layers from back (terrain) to front
+(creature), enabling transparency after the first layer. Matches xu4's
+blending approach (xu4 uses alpha channel set by performTransparencyHack
+at load time; tu4 checks character+attr at draw time).
+
+Intro map: drawMapAnimated() draws terrain first, then NPC with
+transparency via drawTileTransparent() wrapper.
+
+Removed shadow size and shadow opacity settings (not applicable to
+4×4 character tiles). Only the on/off toggle remains.
+
+Files changed: src/tileanim.h, src/tileanim.cpp, src/tileview.h,
+  src/tileview.cpp, src/intro.cpp, src/intro.h, src/settings.h,
+  src/settings.cpp, graphics/9801-style/MYSHAPES.ASP
+
+2026-08-17: Scroll animation direction fix (all contexts)
+-----------------------------------------------------------
+Fixed scroll animation direction to scroll downward in all contexts,
+matching xu4. Previously scrolled upward.
+
+xu4's scroll draws source row 0 at destination y=current (shifting
+content down). tu4's formula was (row + offset) % H which shifts
+content up. Changed to (row - offset + H) % H everywhere:
+
+  - tileanim.cpp animDrawTileScroll() — used by ATYPE_SCROLL (fields,
+    water on game map)
+  - tileview.cpp drawTileScroll() — used for water in intro map
+  - dungeonview.cpp tiled field rendering (distance 0-2)
+  - dungeonview.cpp fountain at distance 1 (16×16)
+
+Files changed: src/tileanim.cpp, src/tileview.cpp, src/dungeonview.cpp
+
+2026-08-16: Dungeon field scroll animation fix in 3D view
+-----------------------------------------------------------
+Fixed scroll animation for fields (poison/fire/energy/sleep) in the
+dungeon 3D first-person view. Previously the tiled pattern was static
+because drawInDungeon() only read var.scroll.current without advancing
+it — the normal advance logic lives in TileAnimTransform::draw() which
+is only called in the 2D tile rendering path (tileview.cpp), never in
+the 3D dungeon view.
+
+Fix: Added the same cycle-based advancement directly in drawInDungeon()
+before reading the offset — checks screenState()->currentCycle / 2
+against lastOffset and increments current when it changes, mirroring
+tileanim.cpp's ATYPE_SCROLL logic exactly.
+
+File changed: src/dungeonview.cpp (drawInDungeon, tiled wall section)
+
+2026-08-15: Dungeon field rendering in 3D view (tiled patterns)
+-----------------------------------------------------------------
+Fields (poison/fire/energy/sleep) in the dungeon 3D first-person view
+now render using the full 4x4 tile from SHAPES.ASP tiled to fill the
+corridor opening, instead of a single GEM.ASP glyph. Fields are only
+visible up to distance 2. Fill sizes: distance 0 = 44x44, distance 1
+= 28x28, distance 2 = 12x12.
+
+File changed: src/dungeonview.cpp
+
+2026-08-15: Mouse interaction in text mode
+--------------------------------------------
+Implemented click-to-move mouse support matching xu4's behavior:
+- Click in map viewport moves party in that direction (N/S/E/W)
+- Map viewport split into 4 triangular regions via mouseAreas
+- Coordinates adapted to 44x44 char viewport at (2,2)-(45,45)
+
+Mouse cursor rendered as CP437 arrow characters:
+- ← (27) West, ↑ (24) North, → (26) East, ↓ (25) South
+- Cursor overlaid at render time in screenSwapBuffers() to avoid
+  flicker — injected before renderTextBuffer(), restored after
+- OS cursor hidden inside map viewport, visible outside
+
+pointInMouseArea() implemented with proper triangle hit testing
+(barycentric coordinate method). screenPointToMouseArea() divides
+by 8 since SDL2 RenderSetLogicalSize reports coords in 640x400.
+
+Files changed: src/screen.cpp, src/screen_sdl2.cpp, src/event_sdl2.cpp,
+               src/game.cpp
