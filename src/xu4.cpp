@@ -115,7 +115,7 @@ int parseOptions(Options* opt, int argc, char** argv) {
         }
         else if (strEqualAlt(argv[i], "-h", "--help"))
         {
-            printf("xu4: Ultima IV Recreated\n"
+            printf("tu4: Ultima IV Recreated (text mode)\n"
                    "v%s (%s)\n\n", VERSION, __DATE__ );
             printf(
             "Options:\n"
@@ -191,9 +191,9 @@ void servicesInit(XU4GameServices* gs, Options* opt) {
 
     if (!u4fsetup())
     {
-        errorFatal( "xu4 requires the PC version of Ultima IV to be present.\n"
+        errorFatal( "tu4 requires the PC version of Ultima IV to be present.\n"
             "\nIt may either be a zip file or subdirectory named \"ultima4\" in the same\n"
-            "directory as the xu4 executable.\n"
+            "directory as the tu4 executable.\n"
             "\nFor more information visit http://xu4.sourceforge.net/faq.html\n");
     }
 

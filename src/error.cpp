@@ -68,7 +68,7 @@ void errorFatal(const char *fmt, ...) {
 
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
-    dialog = gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "xu4: %s", buffer);
+    dialog = gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "tu4: %s", buffer);
     va_end(args);
 
     gtk_dialog_run(GTK_DIALOG(dialog));
@@ -89,7 +89,7 @@ void errorWarning(const char *fmt, ...) {
 
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
-    dialog = gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, "xu4: %s", buffer);
+    dialog = gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, "tu4: %s", buffer);
     va_end(args);
 
     gtk_dialog_run(GTK_DIALOG(dialog));
@@ -108,7 +108,7 @@ void errorWarning(const char *fmt, ...) {
 void errorFatal(const char *fmt, ...) {
     va_list args;
 
-    fprintf(stderr, "xu4: error: ");
+    fprintf(stderr, "tu4: error: ");
     va_start(args, fmt);
     vfprintf(stderr, fmt, args);
     va_end(args);
@@ -120,7 +120,7 @@ void errorFatal(const char *fmt, ...) {
 void errorWarning(const char *fmt, ...) {
     va_list args;
 
-    fprintf(stderr, "xu4: warning: ");
+    fprintf(stderr, "tu4: warning: ");
     va_start(args, fmt);
     vfprintf(stderr, fmt, args);
     va_end(args);
