@@ -27,6 +27,7 @@
 #include "progress_bar.h"
 #include "screen.h"
 #include "settings.h"
+#include "u4file.h"
 #include "sound.h"
 #include "utils.h"
 
@@ -212,40 +213,32 @@ bool checkAssets(const std::string& textStyle) {
         "LOVE.ASP",
         "COURAGE.ASP",
         "STONCRCL.ASP",
-        "RUNE_INF.ASP",
+        "RUNE_0.ASP",
         "RUNE_1.ASP",
         "RUNE_2.ASP",
         "RUNE_3.ASP",
         "RUNE_4.ASP",
         "RUNE_5.ASP",
-        "RUNE_6.ASP",
-        "RUNE_7.ASP",
-        "RUNE_8.ASP",
         NULL
     };
 
-    std::string baseDir = "graphics/" + textStyle + "/";
+    /* Resolve files via the same resource-path search the image loader uses
+     * (u4find_graphics -> graphicsPaths x rootResourcePaths), so generated
+     * assets in ~/.local/share/tu4/graphics/<theme>/ and shipped assets in
+     * /usr/share/tu4/graphics/<theme>/ are both found — not just CWD. */
+    std::string themeSub = textStyle + "/";
 
     /* Check required files — if any missing, theme is not usable */
     for (int i = 0; required[i]; i++) {
-        std::string path = baseDir + required[i];
-        FILE* f = fopen(path.c_str(), "rb");
-        if (f) {
-            fclose(f);
-        } else {
+        if (u4find_graphics(themeSub + required[i]).empty())
             return false;
-        }
     }
 
     /* Warn about missing optional files */
     for (int i = 0; optional[i]; i++) {
-        std::string path = baseDir + optional[i];
-        FILE* f = fopen(path.c_str(), "rb");
-        if (f) {
-            fclose(f);
-        } else {
-            printf("Warning: optional file missing: %s\n", path.c_str());
-        }
+        if (u4find_graphics(themeSub + optional[i]).empty())
+            printf("Warning: optional file missing: graphics/%s%s\n",
+                   themeSub.c_str(), optional[i]);
     }
 
     return true;
