@@ -1974,9 +1974,11 @@ static void loadTitleData() {
         titleReg[TR_SUBTITLE]  = {0, 20, ASP_SCREEN_COLS, 4};
     }
 
-    // Load sigdata.txt
-    FILE* f = fopen("conf/sigdata.txt", "r");
-    if (!f) f = fopen("/home/adrianus/tu4-1.0/conf/sigdata.txt", "r");
+    // Load sigdata.txt from the ACTIVE theme's directory, searching the same
+    // resource paths as the theme's .ASP assets (u4find_graphics ->
+    // graphics/<theme>/ under ., ~/.local/share/tu4, /usr/share/tu4, ...).
+    std::string sigPath = u4find_graphics(xu4.settings->textStyle + "/sigdata.txt");
+    FILE* f = sigPath.empty() ? NULL : fopen(sigPath.c_str(), "r");
     numSigCoords = 0;
     if (f) {
         char line[64];

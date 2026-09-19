@@ -62,3 +62,4 @@
 !/graphics/EGA/*.ASP
 !/graphics/EGA/cp437_8x8.bin
 !/graphics/EGA/palette.bin
+!/graphics/EGA/sigdata.txt

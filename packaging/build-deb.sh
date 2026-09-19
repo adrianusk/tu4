@@ -72,7 +72,6 @@ install -m 644 "$ROOT_DIR/graphics/EGA/TITLE.ASP" "$STAGE$RES/setup/title-upper.
 # aggregator). The *.xml glob does NOT match conf/graphics-text.xml.presplit.bak
 # or the conf/themes/ subdirectory, so both are handled separately.
 install -m 644 "$ROOT_DIR"/conf/*.xml "$STAGE$RES/conf"
-install -m 644 "$ROOT_DIR"/conf/sigdata.txt "$STAGE$RES/conf"
 install -m 644 "$ROOT_DIR"/conf/dtd/*.dtd "$STAGE$RES/conf/dtd"
 # Per-theme fragment XIncluded by graphics-text.xml. Ship only the base
 # theme (EGA, the default). U5-EGA.xml and PC9801.xml are reserved for future
@@ -95,6 +94,10 @@ copy_asp() {
 	# per-theme 16-colour palette (48 bytes RGB), if present
 	if [ -e "$src/palette.bin" ]; then
 		install -m 644 "$src/palette.bin" "$dst"
+	fi
+	# per-theme signature animation coordinates (title screen), if present
+	if [ -e "$src/sigdata.txt" ]; then
+		install -m 644 "$src/sigdata.txt" "$dst"
 	fi
 }
 copy_asp "$ROOT_DIR/graphics/EGA" "$STAGE$RES/graphics/EGA"
