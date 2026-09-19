@@ -97,14 +97,15 @@ SETUP_CXXSRCS=\
         setup/aspdiff.cpp \
         setup/dungobj.cpp \
         setup/manifest.cpp \
+        setup/datasource.cpp \
         setup/tu4setup_main.cpp \
         $(NULL)
 
-# Setup-private objects for the reused decompressors. Compiled fresh from
-# source into setup/ so they can NEVER pick up a stale/cross-compiled checked-in
-# rle.o / lzw/*.o (observed: Windows COFF objects -> "dangerous relocation").
+# Setup-private objects for the reused decompressors + unzip. Compiled fresh
+# from source into setup/ so they can NEVER pick up a stale/cross-compiled
+# checked-in object (observed: Windows COFF objects -> "dangerous relocation").
 SETUP_OBJS=$(SETUP_CXXSRCS:.cpp=.o) \
-        setup/rle.setup.o setup/lzw.setup.o setup/hash.setup.o
+        setup/rle.setup.o setup/lzw.setup.o setup/hash.setup.o setup/unzip.setup.o
 
 all:: $(MAIN) mkutils
 
@@ -112,8 +113,9 @@ mkutils::  coord$(EXEEXT) dumpmap$(EXEEXT) dumpsavegame$(EXEEXT) tlkconv$(EXEEXT
 
 # tu4-setup is intentionally NOT part of `all` (it is an asset-authoring/setup
 # tool, not needed for the game build). Build it explicitly: `make tu4-setup`.
+# Links zlib for the unzip (ultima4.zip) support.
 tu4-setup$(EXEEXT): $(SETUP_OBJS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(SETUP_OBJS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(SETUP_OBJS) -lz
 
 setup/rle.setup.o: rle.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
@@ -122,6 +124,9 @@ setup/lzw.setup.o: lzw/lzw.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 setup/hash.setup.o: lzw/hash.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+setup/unzip.setup.o: unzip.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # mkaspdiff — DEV-ONLY .aspdiff generator (DESIGN §6). Links only aspdiff.o
@@ -154,7 +159,7 @@ u4unpackexe$(EXEEXT): util/u4unpackexe.c
 	$(CC) -o $@ $+
 
 clean:: cleanutil
-	rm -rf *~ */*~ $(OBJS) $(MAIN) $(SETUP_CXXSRCS:.cpp=.o) setup/rle.setup.o setup/lzw.setup.o setup/hash.setup.o tu4-setup$(EXEEXT) mkaspdiff$(EXEEXT)
+	rm -rf *~ */*~ $(OBJS) $(MAIN) $(SETUP_CXXSRCS:.cpp=.o) setup/rle.setup.o setup/lzw.setup.o setup/hash.setup.o setup/unzip.setup.o tu4-setup$(EXEEXT) mkaspdiff$(EXEEXT)
 
 cleanutil::
 	rm -rf coord$(EXEEXT) dumpmap$(EXEEXT) dumpsavegame$(EXEEXT) u4dec$(EXEEXT) u4enc$(EXEEXT) tlkconv$(EXEEXT) u4unpackexe$(EXEEXT) util/*.o

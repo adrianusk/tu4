@@ -17,6 +17,7 @@
 #include "dungobj.h"
 #include "aspdiff.h"
 #include "manifest.h"
+#include "datasource.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -42,43 +43,8 @@ static bool readFile(const char *path, std::vector<uint8_t> &out) {
 }
 
 // ---- Locate the Ultima IV data dir, mirroring tu4's search (u4file.cpp) -----
-// Searches root x subdir combinations for a probe file (e.g. SHAPES.EGA) and
-// returns the containing dir, or "" if not found. Keeps tu4-setup consistent
-// with where tu4 itself looks for the DOS data.
-//   roots:   .  , $HOME/.local/share/tu4 , /usr/share/tu4 , /usr/local/share/tu4
-//            (Windows: . , C:\ , C:\DOS , C:\GAMES)
-//   subdirs: .  , u4 , ultima4
-static std::string findDataDir(const char *probeFile) {
-    std::vector<std::string> roots;
-    roots.push_back(".");
-#ifdef _WIN32
-    roots.push_back("C:");
-    roots.push_back("C:/DOS");
-    roots.push_back("C:/GAMES");
-#else
-#ifdef __linux__
-    const char *home = std::getenv("HOME");
-    if (home && home[0]) roots.push_back(std::string(home) + "/.local/share/tu4");
-#endif
-    roots.push_back("/usr/share/tu4");
-    roots.push_back("/usr/local/share/tu4");
-#endif
-    const char *subdirs[] = { ".", "u4", "ultima4", nullptr };
-    for (const std::string &root : roots) {
-        for (int s = 0; subdirs[s]; ++s) {
-            std::string dir = root + "/" + subdirs[s];
-            std::string probe = dir + "/" + probeFile;
-            FILE *f = std::fopen(probe.c_str(), "rb");
-            if (f) { std::fclose(f); return dir; }
-            // U4 filenames may be upper or lower case; try lowercase probe too.
-            std::string lc = probeFile; for (char &c : lc) c = (char)std::tolower((unsigned char)c);
-            std::string probe2 = dir + "/" + lc;
-            f = std::fopen(probe2.c_str(), "rb");
-            if (f) { std::fclose(f); return dir; }
-        }
-    }
-    return "";
-}
+// (Ultima IV data location + reading is handled by DataSource, which supports
+// both an unpacked dir and an ultima4.zip; see datasource.{h,cpp}.)
 
 static bool loadFont(const char *path, Font8x8 &font) {
     std::vector<uint8_t> buf;
@@ -115,7 +81,7 @@ static DecompAlg parseAlg(const std::string &s, DecompAlg dflt) {
 // ---- Core: produce the RAW payload for one recipe (no diff applied) --------
 // Returns false on error. On success `payload` holds the W*H*2 ASP payload
 // (no 7-byte header). `outW`/`outH` receive the char grid (for header/reporting).
-static bool generatePayload(const Recipe &r, const char *dataDir,
+static bool generatePayload(const Recipe &r, const DataSource &data,
                             const Font8x8 &font, std::vector<uint8_t> &payload,
                             int &outW, int &outH) {
     const int srcW = 320, srcH = 200;
@@ -123,10 +89,9 @@ static bool generatePayload(const Recipe &r, const char *dataDir,
 
     // ---- SHAPES-derived tile art (DUNGOBJ0/1, DUNGNPC1) ----
     if (r.tile != TileMode::None) {
-        std::string sp = std::string(dataDir) + "/" + r.egaFile;
         std::vector<uint8_t> shapes;
-        if (!readFile(sp.c_str(), shapes)) {
-            std::fprintf(stderr, "tu4-setup: cannot read %s\n", sp.c_str());
+        if (!data.read(r.egaFile, shapes)) {
+            std::fprintf(stderr, "tu4-setup: cannot read %s from %s\n", r.egaFile, data.location().c_str());
             return false;
         }
         std::vector<int> ids;
@@ -170,20 +135,19 @@ static bool generatePayload(const Recipe &r, const char *dataDir,
     // ---- Screen assets (80x50 or 44x44) ----
     auto loadTransformed = [&](const std::string &file, DecompAlg a,
                                RgbImage &out) -> bool {
-        std::string p = std::string(dataDir) + "/" + file;
         std::vector<uint8_t> comp;
-        if (!readFile(p.c_str(), comp)) { std::fprintf(stderr, "tu4-setup: cannot read %s\n", p.c_str()); return false; }
+        if (!data.read(file, comp)) { std::fprintf(stderr, "tu4-setup: cannot read %s from %s\n", file.c_str(), data.location().c_str()); return false; }
         std::vector<uint8_t> dec = decompress(comp, a, srcW, srcH);
-        if (dec.empty()) { std::fprintf(stderr, "tu4-setup: decompress failed %s\n", p.c_str()); return false; }
+        if (dec.empty()) { std::fprintf(stderr, "tu4-setup: decompress failed %s\n", file.c_str()); return false; }
         RgbImage im = egaExpand(dec, srcW, srcH);
-        if (im.w == 0) { std::fprintf(stderr, "tu4-setup: EGA expand failed %s\n", p.c_str()); return false; }
+        if (im.w == 0) { std::fprintf(stderr, "tu4-setup: EGA expand failed %s\n", file.c_str()); return false; }
         int tW, tH;
         if (r.scale > 0) { tW = im.w * r.scale; tH = im.h * r.scale; }
         else fitTarget(srcW, srcH, r.cellsW, r.cellsH, 8, 8, tW, tH);
         if (tW != im.w || tH != im.h) im = scaleNearest(im, tW, tH);
         if (r.cropW > 0 && r.cropH > 0) {
             im = crop(im, r.cropX, r.cropY, r.cropW, r.cropH);
-            if (im.w == 0) { std::fprintf(stderr, "tu4-setup: crop failed %s\n", p.c_str()); return false; }
+            if (im.w == 0) { std::fprintf(stderr, "tu4-setup: crop failed %s\n", file.c_str()); return false; }
         }
         out = im;
         return true;
@@ -228,7 +192,7 @@ static bool mergeTitleUpper(std::vector<uint8_t> &payload, const char *shippedAs
 }
 
 // ---- Batch driver: regenerate the whole manifest ---------------------------
-static int runBatch(const char *dataDir, const char *fontPath,
+static int runBatch(const DataSource &data, const char *fontPath,
                     const char *diffsDir, const char *outDir,
                     const char *titleUpperAsp) {
     Font8x8 font;
@@ -238,7 +202,7 @@ static int runBatch(const char *dataDir, const char *fontPath,
 
     for (const Recipe &r : man) {
         std::vector<uint8_t> payload; int W, H;
-        if (!generatePayload(r, dataDir, font, payload, W, H)) { fail++; std::fprintf(stderr, "  FAIL %s (generate)\n", r.name); continue; }
+        if (!generatePayload(r, data, font, payload, W, H)) { fail++; std::fprintf(stderr, "  FAIL %s (generate)\n", r.name); continue; }
 
         // TITLE hybrid: overlay the shipped upper rows 1-8 before the diff.
         if (std::strcmp(r.name, "TITLE") == 0 && titleUpperAsp && *titleUpperAsp) {
@@ -301,24 +265,20 @@ int main(int argc, char *argv[]) {
 
     // Resolve the Ultima IV data directory. If --data was not given, search the
     // same locations tu4 itself searches (current dir, ~/.local/share/tu4,
-    // /usr/share/tu4, /usr/local/share/tu4, plus Windows drives), matching the
-    // paths advertised in tu4's "data not found" message.
-    std::string resolvedData;
-    if (dataDir) {
-        resolvedData = dataDir;
-    } else {
-        resolvedData = findDataDir("SHAPES.EGA");
-        if (resolvedData.empty()) {
-            std::fprintf(stderr,
-                "tu4-setup: could not find Ultima IV data (SHAPES.EGA).\n"
-                "Put the unzipped \"ultima4\" folder in one of:\n"
-                "  ./ultima4, ~/.local/share/tu4/ultima4, /usr/share/tu4/ultima4,\n"
-                "  /usr/local/share/tu4/ultima4  (or pass --data <dir>).\n");
-            return 1;
-        }
-        std::fprintf(stderr, "tu4-setup: using Ultima IV data at %s\n", resolvedData.c_str());
+    // /usr/share/tu4, /usr/local/share/tu4, plus Windows drives), for either an
+    // unpacked ultima4 dir OR an ultima4.zip — matching the paths advertised in
+    // tu4's "data not found" message.
+    DataSource data;
+    if (!data.open(dataDir /* NULL => auto-search */)) {
+        std::fprintf(stderr,
+            "tu4-setup: could not find Ultima IV data (an \"ultima4\" folder or\n"
+            "ultima4.zip). Put it in one of:\n"
+            "  ./ , ~/.local/share/tu4/ , /usr/share/tu4/ , /usr/local/share/tu4/\n"
+            "(each searched for ./ultima4, ./u4, or ultima4.zip). Or pass\n"
+            "--data <dir-or-zip>.\n");
+        return 1;
     }
-    dataDir = resolvedData.c_str();
+    std::fprintf(stderr, "tu4-setup: using Ultima IV data at %s\n", data.location().c_str());
 
     // Resolve batch input/output paths. Prefer the installed setup dir
     // (/usr/share/tu4/setup, from the .deb); fall back to the dev tree. The
@@ -357,7 +317,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (batch)
-        return runBatch(dataDir, fontPath, diffsDir, outDir, titleUpperAsp);
+        return runBatch(data, fontPath, diffsDir, outDir, titleUpperAsp);
 
     // ---- single-asset path (back-compatible CLI) ----
     if (pos.size() >= 1) cli.egaFile = pos[0];
@@ -368,7 +328,7 @@ int main(int argc, char *argv[]) {
     Font8x8 font;
     if (!loadFont(fontPath, font)) return 1;
     std::vector<uint8_t> payload; int W, H;
-    if (!generatePayload(cli, dataDir, font, payload, W, H)) return 1;
+    if (!generatePayload(cli, data, font, payload, W, H)) return 1;
     if (!writeFinal(outPath, payload)) { std::fprintf(stderr, "cannot write %s\n", outPath); return 1; }
     std::printf("tu4-setup: wrote %s (%dx%d cells, %zu-byte payload)\n", outPath, W, H, payload.size());
     return 0;

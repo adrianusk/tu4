@@ -125,7 +125,7 @@ Version: $VERSION
 Section: games
 Priority: optional
 Architecture: $ARCH
-Depends: libc6, libsdl2-2.0-0, libsdl2-mixer-2.0-0
+Depends: libc6, libsdl2-2.0-0, libsdl2-mixer-2.0-0, zlib1g
 Installed-Size: $INSTALLED_KB
 Maintainer: ASCII Dragon <tu4@localhost>
 Homepage: https://xu4.sourceforge.net/
