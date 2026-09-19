@@ -40,12 +40,32 @@ install -d "$STAGE/DEBIAN"
 install -d "$STAGE/usr/bin"
 install -d "$STAGE$RES/conf" "$STAGE$RES/conf/dtd" "$STAGE$RES/conf/themes"
 install -d "$STAGE$RES/graphics/EGA"
+install -d "$STAGE$RES/setup" "$STAGE$RES/setup/aspdiff"
 install -d "$STAGE$RES/mid" "$STAGE$RES/sound"
 install -d "$STAGE/usr/share/applications"
 install -d "$STAGE/usr/share/icons/hicolor/48x48/apps"
 
 # ---- binary ------------------------------------------------------------
 install -m 755 "$ROOT_DIR/tu4" "$STAGE/usr/bin/tu4"
+
+# ---- tu4-setup: regenerates the U4-derived EGA .ASP assets on the user's
+#      machine from their Ultima IV data (those assets are NOT shipped).
+#      Ship the tool plus its inputs: the .aspdiff touch-ups, the matcher
+#      font, and the hand-authored TITLE upper-region source. tu4-setup
+#      writes the generated ASPs to ~/.local/share/tu4/graphics/EGA/.
+if [ ! -x "$ROOT_DIR/src/tu4-setup" ]; then
+	echo "Error: src/tu4-setup not found. Build it: (cd src && make tu4-setup)" >&2
+	exit 1
+fi
+install -m 755 "$ROOT_DIR/src/tu4-setup" "$STAGE/usr/bin/tu4-setup"
+for f in "$ROOT_DIR"/graphics/converters/baselines_EGA/aspdiff/*.aspdiff; do
+	[ -e "$f" ] && install -m 644 "$f" "$STAGE$RES/setup/aspdiff"
+done
+install -m 644 "$ROOT_DIR/graphics/converters/cp437_8x8.bin" "$STAGE$RES/setup/cp437_8x8.bin"
+# TITLE upper-region source (rows 1-8, hand-authored; the regenerated TITLE
+# takes its upper rows verbatim from here). Ship the current TITLE.ASP as the
+# upper source (only bytes 0..1279 are used by the merge).
+install -m 644 "$ROOT_DIR/graphics/EGA/TITLE.ASP" "$STAGE$RES/setup/title-upper.ASP"
 
 # ---- config ------------------------------------------------------------
 # conf/*.xml matches the loose top-level configs (graphics-text.xml is the

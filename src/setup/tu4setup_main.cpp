@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
 #include <string>
 #include <vector>
 #include <cmath>
@@ -38,6 +39,45 @@ static bool readFile(const char *path, std::vector<uint8_t> &out) {
     size_t got = std::fread(out.data(), 1, (size_t)n, f);
     std::fclose(f);
     return got == (size_t)n;
+}
+
+// ---- Locate the Ultima IV data dir, mirroring tu4's search (u4file.cpp) -----
+// Searches root x subdir combinations for a probe file (e.g. SHAPES.EGA) and
+// returns the containing dir, or "" if not found. Keeps tu4-setup consistent
+// with where tu4 itself looks for the DOS data.
+//   roots:   .  , $HOME/.local/share/tu4 , /usr/share/tu4 , /usr/local/share/tu4
+//            (Windows: . , C:\ , C:\DOS , C:\GAMES)
+//   subdirs: .  , u4 , ultima4
+static std::string findDataDir(const char *probeFile) {
+    std::vector<std::string> roots;
+    roots.push_back(".");
+#ifdef _WIN32
+    roots.push_back("C:");
+    roots.push_back("C:/DOS");
+    roots.push_back("C:/GAMES");
+#else
+#ifdef __linux__
+    const char *home = std::getenv("HOME");
+    if (home && home[0]) roots.push_back(std::string(home) + "/.local/share/tu4");
+#endif
+    roots.push_back("/usr/share/tu4");
+    roots.push_back("/usr/local/share/tu4");
+#endif
+    const char *subdirs[] = { ".", "u4", "ultima4", nullptr };
+    for (const std::string &root : roots) {
+        for (int s = 0; subdirs[s]; ++s) {
+            std::string dir = root + "/" + subdirs[s];
+            std::string probe = dir + "/" + probeFile;
+            FILE *f = std::fopen(probe.c_str(), "rb");
+            if (f) { std::fclose(f); return dir; }
+            // U4 filenames may be upper or lower case; try lowercase probe too.
+            std::string lc = probeFile; for (char &c : lc) c = (char)std::tolower((unsigned char)c);
+            std::string probe2 = dir + "/" + lc;
+            f = std::fopen(probe2.c_str(), "rb");
+            if (f) { std::fclose(f); return dir; }
+        }
+    }
+    return "";
 }
 
 static bool loadFont(const char *path, Font8x8 &font) {
@@ -224,14 +264,14 @@ static int runBatch(const char *dataDir, const char *fontPath,
 }
 
 int main(int argc, char *argv[]) {
-    const char *dataDir = "ultima4";
+    const char *dataDir = nullptr;   // NULL => auto-search tu4's data paths
     const char *fontPath = "graphics/converters/cp437_8x8.bin";
 
-    // ---- Batch mode ----
+    // ---- Batch mode (paths default to installed or dev-tree, resolved below) ----
     bool batch = false;
-    const char *diffsDir = "graphics/converters/baselines_EGA/aspdiff";
-    const char *outDir = ".";
-    const char *titleUpperAsp = "graphics/EGA/TITLE.ASP";  // source of upper rows 1-8
+    const char *diffsDir = nullptr;
+    const char *outDir = nullptr;
+    const char *titleUpperAsp = nullptr;  // source of TITLE upper rows 1-8
 
     // ---- Single-asset (CLI) recipe defaults ----
     Recipe cli; cli.name = "OUT"; cli.egaFile = "TREE.EGA"; cli.alg = DecompAlg::Lzw;
@@ -257,6 +297,63 @@ int main(int argc, char *argv[]) {
         else if (!std::strcmp(argv[i], "--dungobj") && i+1 < argc) cli.tile = std::atoi(argv[++i]) == 0 ? TileMode::DungObj0 : TileMode::DungObj1;
         else if (!std::strcmp(argv[i], "--dungnpc1")) cli.tile = TileMode::DungNpc1;
         else pos.push_back(argv[i]);
+    }
+
+    // Resolve the Ultima IV data directory. If --data was not given, search the
+    // same locations tu4 itself searches (current dir, ~/.local/share/tu4,
+    // /usr/share/tu4, /usr/local/share/tu4, plus Windows drives), matching the
+    // paths advertised in tu4's "data not found" message.
+    std::string resolvedData;
+    if (dataDir) {
+        resolvedData = dataDir;
+    } else {
+        resolvedData = findDataDir("SHAPES.EGA");
+        if (resolvedData.empty()) {
+            std::fprintf(stderr,
+                "tu4-setup: could not find Ultima IV data (SHAPES.EGA).\n"
+                "Put the unzipped \"ultima4\" folder in one of:\n"
+                "  ./ultima4, ~/.local/share/tu4/ultima4, /usr/share/tu4/ultima4,\n"
+                "  /usr/local/share/tu4/ultima4  (or pass --data <dir>).\n");
+            return 1;
+        }
+        std::fprintf(stderr, "tu4-setup: using Ultima IV data at %s\n", resolvedData.c_str());
+    }
+    dataDir = resolvedData.c_str();
+
+    // Resolve batch input/output paths. Prefer the installed setup dir
+    // (/usr/share/tu4/setup, from the .deb); fall back to the dev tree. The
+    // output defaults to the USER-WRITABLE per-user theme dir (the installed
+    // /usr/share is read-only), which tu4 also searches at runtime.
+    std::string sFont, sDiffs, sTitle, sOut;
+    auto exists = [](const std::string &p){ FILE *f=std::fopen(p.c_str(),"rb"); if(f){std::fclose(f);return true;} return false; };
+    auto dirExists = [&](const std::string &p){ return exists(p + "/."); };
+    if (batch) {
+        const char *INST = "/usr/share/tu4/setup";
+        bool installed = dirExists(INST);
+        if (!fontPath || !exists(fontPath))
+            sFont = installed ? std::string(INST) + "/cp437_8x8.bin"
+                              : std::string("graphics/converters/cp437_8x8.bin");
+        else sFont = fontPath;
+        sDiffs = diffsDir ? diffsDir
+               : (installed ? std::string(INST) + "/aspdiff"
+                            : std::string("graphics/converters/baselines_EGA/aspdiff"));
+        sTitle = titleUpperAsp ? titleUpperAsp
+               : (installed ? std::string(INST) + "/title-upper.ASP"
+                            : std::string("graphics/EGA/TITLE.ASP"));
+        if (outDir) sOut = outDir;
+        else {
+            const char *home = std::getenv("HOME");
+            if (home && home[0]) {
+                sOut = std::string(home) + "/.local/share/tu4/graphics/EGA";
+                // best-effort create the output dir tree
+                std::string cmd = "mkdir -p '" + sOut + "'";
+                if (std::system(cmd.c_str()) != 0)
+                    std::fprintf(stderr, "tu4-setup: warning: could not create %s\n", sOut.c_str());
+            } else sOut = ".";
+        }
+        fontPath = sFont.c_str(); diffsDir = sDiffs.c_str();
+        titleUpperAsp = sTitle.c_str(); outDir = sOut.c_str();
+        std::fprintf(stderr, "tu4-setup: writing regenerated EGA assets to %s\n", outDir);
     }
 
     if (batch)

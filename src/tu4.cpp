@@ -309,13 +309,24 @@ void servicesInit(XU4GameServices* gs, Options* opt) {
             printf("Warning: theme \"%s\" not found, falling back to default \"%s\"\n",
                    gs->settings->textStyle.c_str(), DEFAULT_TEXT_STYLE);
             gs->settings->textStyle = DEFAULT_TEXT_STYLE;
-            if (!checkAssets(gs->settings->textStyle)) {
-                errorFatal("Default theme \"%s\" also missing required files in graphics/%s/",
-                           DEFAULT_TEXT_STYLE, DEFAULT_TEXT_STYLE);
-            }
-        } else {
-            errorFatal("Default theme \"%s\" missing required files in graphics/%s/",
-                       DEFAULT_TEXT_STYLE, DEFAULT_TEXT_STYLE);
+        }
+        if (!checkAssets(gs->settings->textStyle)) {
+            /* U4 data is present (u4fsetup passed above), but the U4-derived
+             * theme .ASP assets have not been generated yet. They are NOT
+             * shipped; the user regenerates them from their own Ultima IV data
+             * with tu4-setup. */
+            errorFatal(
+                "The \"%s\" theme's graphics have not been generated yet.\n"
+                "\n"
+                "tu4 ships only the art that cannot be derived from Ultima IV;\n"
+                "the rest is generated from YOUR Ultima IV data. Run:\n"
+                "\n"
+                "    tu4-setup --all\n"
+                "\n"
+                "It finds your Ultima IV data automatically and writes the\n"
+                "generated assets to ~/.local/share/tu4/graphics/%s/.\n"
+                "Then start tu4 again.",
+                DEFAULT_TEXT_STYLE, DEFAULT_TEXT_STYLE);
         }
     }
 
