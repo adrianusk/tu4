@@ -1297,8 +1297,8 @@ void IntroController::about() {
 
     static const char *main_lines[] = {
         "",
-        "A 16 color CGA text mode demake of Ultima IV",
-        "based on xu4 (tu4.sourceforge.net)",
+        "A text mode demake of Ultima IV",
+        "based on xu4 (xu4.sourceforge.net)",
         "",
         "tu4 is free software; you can redistribute",
         "it and/or modify it under the terms of the",
