@@ -3,18 +3,17 @@
 #
 # Mirrors the layout of packaging/setup (install action):
 #   /usr/bin/tu4
-#   /usr/share/tu4/{conf,conf/themes,graphics/U5-EGA,graphics/EGA,mid,sound}
+#   /usr/share/tu4/{conf,conf/themes,graphics/EGA,mid,sound}
 #   /usr/share/applications/tu4.desktop
 #   /usr/share/icons/hicolor/48x48/apps/tu4.png
 #
-# Only runtime assets are packaged. The text-mode themes ship ONLY their
-# .ASP files (and the CHARSET cp437_8x8.bin); leftover source art
-# (*.png, *.vga, *.ori, *.bak, *.bin except cp437) is intentionally
-# excluded.
+# Only runtime assets are packaged. The text-mode theme ships ONLY its
+# .ASP files (plus cp437_8x8.bin and palette.bin); leftover source art
+# (*.png, *.vga, *.ori, *.bak, *.psci) is intentionally excluded.
 #
 # graphics-text.xml is an aggregator that XIncludes per-theme fragments
-# from conf/themes/. The base package ships U5-EGA (default) and EGA;
-# PC9801 is a future add-on module and is NOT packaged here.
+# from conf/themes/. The base package ships ONLY EGA (the default).
+# U5-EGA and PC9801 are future add-on modules and are NOT packaged here.
 #
 # Ultima IV DOS game data is NOT included (it is not redistributable and
 # must be supplied by the user at runtime).
@@ -40,7 +39,7 @@ fi
 install -d "$STAGE/DEBIAN"
 install -d "$STAGE/usr/bin"
 install -d "$STAGE$RES/conf" "$STAGE$RES/conf/dtd" "$STAGE$RES/conf/themes"
-install -d "$STAGE$RES/graphics/U5-EGA" "$STAGE$RES/graphics/EGA"
+install -d "$STAGE$RES/graphics/EGA"
 install -d "$STAGE$RES/mid" "$STAGE$RES/sound"
 install -d "$STAGE/usr/share/applications"
 install -d "$STAGE/usr/share/icons/hicolor/48x48/apps"
@@ -55,9 +54,9 @@ install -m 755 "$ROOT_DIR/tu4" "$STAGE/usr/bin/tu4"
 install -m 644 "$ROOT_DIR"/conf/*.xml "$STAGE$RES/conf"
 install -m 644 "$ROOT_DIR"/conf/sigdata.txt "$STAGE$RES/conf"
 install -m 644 "$ROOT_DIR"/conf/dtd/*.dtd "$STAGE$RES/conf/dtd"
-# Per-theme fragments XIncluded by graphics-text.xml. Ship only the base
-# themes (U5-EGA, EGA); PC9801.xml is reserved for the future add-on module.
-install -m 644 "$ROOT_DIR"/conf/themes/U5-EGA.xml "$STAGE$RES/conf/themes"
+# Per-theme fragment XIncluded by graphics-text.xml. Ship only the base
+# theme (EGA, the default). U5-EGA.xml and PC9801.xml are reserved for future
+# add-on modules and are NOT packaged here.
 install -m 644 "$ROOT_DIR"/conf/themes/EGA.xml "$STAGE$RES/conf/themes"
 
 # ---- graphics themes: ASP files only (omit PNG and other source art) ---
@@ -78,7 +77,6 @@ copy_asp() {
 		install -m 644 "$src/palette.bin" "$dst"
 	fi
 }
-copy_asp "$ROOT_DIR/graphics/U5-EGA" "$STAGE$RES/graphics/U5-EGA"
 copy_asp "$ROOT_DIR/graphics/EGA" "$STAGE$RES/graphics/EGA"
 
 # window/taskbar icon used at runtime

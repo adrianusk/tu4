@@ -37,7 +37,7 @@
 // 0 = DOS
 #define DEFAULT_LINEOFSIGHT             0
 
-#define DEFAULT_TEXT_STYLE              "U5-EGA"
+#define DEFAULT_TEXT_STYLE              "EGA"
 #define DEFAULT_GEM_LAYOUT              "Standard"
 #define DEFAULT_SCREEN_SHAKES           1
 #define DEFAULT_MUSIC_VOLUME            10

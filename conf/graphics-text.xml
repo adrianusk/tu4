@@ -11,11 +11,11 @@
     tileanimset name="NAME".  They are spliced into graphics below via
     XInclude selecting the wrapper's children: xpointer(/themefrag/*).
 
-    Shipped base themes: U5-EGA (default) and EGA, both standalone.
-    PC9801 is reserved for a future add-on module (themes/PC9801.xml exists
-    but is intentionally NOT included here); the base package does not ship
-    its assets. To enable it, install graphics/PC9801/ and add an
-    xi:include line for themes/PC9801.xml.
+    Shipped base theme: EGA (default), standalone.
+    U5-EGA and PC9801 are reserved for future add-on modules (their
+    themes/*.xml fragments exist but are intentionally NOT included here);
+    the base package does not ship their assets. To enable one, install its
+    graphics/<NAME>/ dir and add an xi:include line for themes/<NAME>.xml.
 -->
 <graphics>
     <!--
@@ -39,9 +39,7 @@
         <viewport x="13" y="13" width="22" height="22"/>
     </layout>
 
-    <!-- Base themes (standalone, no extends). -->
-    <xi:include xmlns:xi="http://www.w3.org/2003/XInclude"
-                href="themes/U5-EGA.xml" xpointer="xpointer(/themefrag/*)"/>
+    <!-- Base theme (standalone, no extends). -->
     <xi:include xmlns:xi="http://www.w3.org/2003/XInclude"
                 href="themes/EGA.xml" xpointer="xpointer(/themefrag/*)"/>
 </graphics>
