@@ -62,11 +62,13 @@ The game is playable in text mode.  Implemented so far:
    applied live without restarting.
  - Mouse click-to-move support in the map viewport.
 
-TU4 ships a single text-mode theme: **EGA** (the default).  The Configure
-menu's **Text Style** setting lists the themes currently configured in
-`conf/graphics-text.xml`; the base package configures only EGA.  (Additional
-themes such as U5-EGA are not shipped — enabling one requires installing its
-`graphics/<NAME>/` assets and adding an XInclude for `conf/themes/<NAME>.xml`.)
+TU4 ships a single text-mode theme: **EGA** (the default).  Themes are
+auto-discovered: the Configure menu's **Text Style** setting lists every
+theme fragment `conf/themes/<NAME>.xml` whose graphics are installed at
+`graphics/<NAME>/`.  Only the active theme is loaded, on demand.  The base
+package ships only EGA, so only EGA is listed.  To add a theme, drop its
+`conf/themes/<NAME>.xml` fragment and `graphics/<NAME>/` assets in place —
+it then appears in the Text Style menu automatically, with no config edit.
 
 Some thoughts for possible improvements (inherited from xu4):
  - Ultima 5 style aiming in combat (i.e. allow angle shots)
