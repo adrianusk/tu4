@@ -62,7 +62,11 @@ The game is playable in text mode.  Implemented so far:
    applied live without restarting.
  - Mouse click-to-move support in the map viewport.
 
-TU4 ships two text-mode themes: **U5-EGA** (the default) and **EGA**.
+TU4 ships a single text-mode theme: **EGA** (the default).  The Configure
+menu's **Text Style** setting lists the themes currently configured in
+`conf/graphics-text.xml`; the base package configures only EGA.  (Additional
+themes such as U5-EGA are not shipped — enabling one requires installing its
+`graphics/<NAME>/` assets and adding an XInclude for `conf/themes/<NAME>.xml`.)
 
 Some thoughts for possible improvements (inherited from xu4):
  - Ultima 5 style aiming in combat (i.e. allow angle shots)
@@ -81,10 +85,13 @@ character and one byte for the EGA color attribute per cell.  Tile and
 charset files are indexed by the Ultima IV **save ID** (0–255), the same
 way xu4 indexes its image assets.
 
-The theme directories under `graphics/` (e.g. `graphics/U5-EGA/`,
-`graphics/EGA/`) contain the converted assets — MYSHAPES.ASP (tiles),
-CHARSET.ASP / GEM.ASP (glyphs), TITLE.ASP, dungeon art, etc.  Conversion
-scripts (PNG/SHAPES → ASP) live in `graphics/` and `graphics/test/`.
+The theme directory `graphics/EGA/` contains the shipped assets —
+MYSHAPES.ASP (tiles), CHARSET.ASP / GEM.ASP (glyphs), dungeon art, etc.
+Assets that can be derived from the user's own Ultima IV data (the intro
+screens, codex/shrine screens, dungeon object/monster tiles, TITLE, …) are
+**not** shipped — they are generated on first run by `tu4-setup` (see
+below).  Conversion scripts (PNG/SHAPES → ASP) live under
+`graphics/converters/`.
 
 
 Compiling
@@ -142,6 +149,24 @@ The zipfile doesn't need to be unpacked, but if it is, TU4 can handle
 uppercase or lowercase filenames even on case-sensitive filesystems,
 so it doesn't matter whether the files are named AVATAR.EXE or
 avater.exe or even Avatar.exe.
+
+### First run: generating the graphics (`tu4-setup`)
+
+TU4 ships only the graphics it cannot derive from Ultima IV (its own tile
+set, charset, dungeon-wall art, etc.).  The rest — the intro screens, the
+codex/shrine screens, the dungeon object/monster tiles, and TITLE — are
+**generated from your own Ultima IV data on first run** by the bundled
+`tu4-setup` tool.
+
+If you start `tu4` before generating them, it will tell you to run:
+
+    tu4-setup
+
+`tu4-setup` finds your Ultima IV data automatically (searching the same
+places `tu4` does, and it accepts either an unpacked `ultima4` folder or
+`ultima4.zip`), regenerates the derived assets, and writes them to
+`~/.local/share/tu4/graphics/EGA/`.  Then start `tu4` again.  You only need
+to do this once (re-run it if you change or reinstall your Ultima IV data).
 
 At the title screen, a configuration menu can be accessed by pressing
 'c'.  Here, the screen scale, **Text Style** (graphics theme), volume
