@@ -58,7 +58,9 @@ if [ ! -x "$ROOT_DIR/src/tu4-setup" ]; then
 	exit 1
 fi
 install -m 755 "$ROOT_DIR/src/tu4-setup" "$STAGE/usr/bin/tu4-setup"
-for f in "$ROOT_DIR"/graphics/converters/baselines_EGA/aspdiff/*.aspdiff; do
+# Shipped touch-up diffs live in mod/EGA/ (tracked in git). The dev-only
+# baseline .ASPs (graphics/converters/baselines_EGA/) are NOT needed to build.
+for f in "$ROOT_DIR"/mod/EGA/*.aspdiff; do
 	[ -e "$f" ] && install -m 644 "$f" "$STAGE$RES/setup/aspdiff"
 done
 install -m 644 "$ROOT_DIR/graphics/converters/cp437_8x8.bin" "$STAGE$RES/setup/cp437_8x8.bin"
@@ -83,16 +85,19 @@ install -m 644 "$ROOT_DIR"/conf/themes/EGA.xml "$STAGE$RES/conf/themes"
 # copy_asp <src-theme-dir> <dst-theme-dir>
 copy_asp() {
 	src=$1; dst=$2
-	# .ASP assets — ship ONLY the NON-regenerable ones. Any ASP that tu4-setup
-	# can regenerate from the user's Ultima IV data (i.e. one that has a matching
-	# baseline in graphics/converters/baselines_EGA/) is NOT shipped; it is
-	# generated on first run into ~/.local/share/tu4/graphics/EGA/.
-	BASELINES="$ROOT_DIR/graphics/converters/baselines_EGA"
+	# .ASP assets — ship ONLY the NON-regenerable ones. Any asset that tu4-setup
+	# regenerates from the user's Ultima IV data (listed in mod/EGA/regenerable.list)
+	# is NOT shipped; it is generated on first run into
+	# ~/.local/share/tu4/graphics/EGA/. The list is the authoritative,
+	# clone-available mirror of the tu4-setup manifest (dev-only baseline .ASPs
+	# are NOT needed to build the package).
+	REGEN_LIST="$ROOT_DIR/mod/EGA/regenerable.list"
 	for f in "$src"/*.ASP; do
 		[ -e "$f" ] || continue
 		base=$(basename "$f")
-		# skip regenerable assets (present in the baselines set)
-		if [ -e "$BASELINES/$base" ]; then
+		name=${base%.ASP}
+		# skip regenerable assets (name present in the manifest list)
+		if [ -f "$REGEN_LIST" ] && grep -qx "$name" "$REGEN_LIST"; then
 			continue
 		fi
 		# skip the TITLE upper-region SOURCE (shipped separately as a setup input)

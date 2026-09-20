@@ -296,7 +296,7 @@ int main(int argc, char *argv[]) {
         else sFont = fontPath;
         sDiffs = diffsDir ? diffsDir
                : (installed ? std::string(INST) + "/aspdiff"
-                            : std::string("graphics/converters/baselines_EGA/aspdiff"));
+                            : std::string("mod/EGA"));
         sTitle = titleUpperAsp ? titleUpperAsp
                : (installed ? std::string(INST) + "/title-upper.ASP"
                             : std::string("graphics/EGA/title-upper.ASP"));

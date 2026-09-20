@@ -42,6 +42,11 @@ const std::vector<Recipe> &egaManifest() {
     m.push_back(SCREEN80("START",   "START.EGA",   DecompAlg::Rle, true));
     m.push_back(SCREEN80("ABACUS",  "ABACUS.EGA",  DecompAlg::Lzw, true));
     m.push_back(SCREEN80("ANIMATE", "ANIMATE.EGA", DecompAlg::Lzw, true));
+    // virtue-card screens (each shows two virtue cards; LZW 80x50 + touch-up).
+    m.push_back(SCREEN80("HONCOM",   "HONCOM.EGA",   DecompAlg::Lzw, true));
+    m.push_back(SCREEN80("VALJUS",   "VALJUS.EGA",   DecompAlg::Lzw, true));
+    m.push_back(SCREEN80("SACHONOR", "SACHONOR.EGA", DecompAlg::Lzw, true));
+    m.push_back(SCREEN80("SPIRHUM",  "SPIRHUM.EGA",  DecompAlg::Lzw, true));
 
     // --- TITLE: hybrid handled specially by the driver (upper rows + diff) ---
     m.push_back(SCREEN80("TITLE",   "TITLE.EGA",   DecompAlg::Lzw, true));
