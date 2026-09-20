@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
                             : std::string("graphics/converters/baselines_EGA/aspdiff"));
         sTitle = titleUpperAsp ? titleUpperAsp
                : (installed ? std::string(INST) + "/title-upper.ASP"
-                            : std::string("graphics/EGA/TITLE.ASP"));
+                            : std::string("graphics/EGA/title-upper.ASP"));
         if (outDir) sOut = outDir;
         else {
             const char *home = std::getenv("HOME");

@@ -63,3 +63,40 @@
 !/graphics/EGA/cp437_8x8.bin
 !/graphics/EGA/palette.bin
 !/graphics/EGA/sigdata.txt
+
+# --- Regenerable EGA assets: generated on first run by tu4-setup from the
+#     user's Ultima IV data (category 1/2), so NOT tracked or shipped.
+#     Working copies are the dev baselines; excluded here (must come AFTER
+#     the !*.ASP whitelist so the exclusion wins).
+/graphics/EGA/ABACUS.ASP
+/graphics/EGA/ANIMATE.ASP
+/graphics/EGA/COMPASSN.ASP
+/graphics/EGA/COURAGE.ASP
+/graphics/EGA/DUNGNPC1.ASP
+/graphics/EGA/DUNGOBJ0.ASP
+/graphics/EGA/DUNGOBJ1.ASP
+/graphics/EGA/GYPSY.ASP
+/graphics/EGA/HONESTY.ASP
+/graphics/EGA/HONOR.ASP
+/graphics/EGA/HUMILITY.ASP
+/graphics/EGA/INSIDE.ASP
+/graphics/EGA/JUSTICE.ASP
+/graphics/EGA/KEY7.ASP
+/graphics/EGA/LOVE.ASP
+/graphics/EGA/OUTSIDE.ASP
+/graphics/EGA/PORTAL.ASP
+/graphics/EGA/RUNE_0.ASP
+/graphics/EGA/RUNE_1.ASP
+/graphics/EGA/RUNE_2.ASP
+/graphics/EGA/RUNE_3.ASP
+/graphics/EGA/RUNE_4.ASP
+/graphics/EGA/RUNE_5.ASP
+/graphics/EGA/SACRIFIC.ASP
+/graphics/EGA/SPIRIT.ASP
+/graphics/EGA/START.ASP
+/graphics/EGA/STONCRCL.ASP
+/graphics/EGA/TITLE.ASP
+/graphics/EGA/TREE.ASP
+/graphics/EGA/TRUTH.ASP
+/graphics/EGA/VALOR.ASP
+/graphics/EGA/WAGON.ASP

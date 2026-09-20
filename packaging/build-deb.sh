@@ -63,9 +63,10 @@ for f in "$ROOT_DIR"/graphics/converters/baselines_EGA/aspdiff/*.aspdiff; do
 done
 install -m 644 "$ROOT_DIR/graphics/converters/cp437_8x8.bin" "$STAGE$RES/setup/cp437_8x8.bin"
 # TITLE upper-region source (rows 1-8, hand-authored; the regenerated TITLE
-# takes its upper rows verbatim from here). Ship the current TITLE.ASP as the
-# upper source (only bytes 0..1279 are used by the merge).
-install -m 644 "$ROOT_DIR/graphics/EGA/TITLE.ASP" "$STAGE$RES/setup/title-upper.ASP"
+# takes its upper rows verbatim from here). This is a dedicated committed
+# input (graphics/EGA/title-upper.ASP) since the full TITLE.ASP is regenerated
+# and not shipped.
+install -m 644 "$ROOT_DIR/graphics/EGA/title-upper.ASP" "$STAGE$RES/setup/title-upper.ASP"
 
 # ---- config ------------------------------------------------------------
 # conf/*.xml matches the loose top-level configs (graphics-text.xml is the
@@ -82,9 +83,22 @@ install -m 644 "$ROOT_DIR"/conf/themes/EGA.xml "$STAGE$RES/conf/themes"
 # copy_asp <src-theme-dir> <dst-theme-dir>
 copy_asp() {
 	src=$1; dst=$2
-	# .ASP tile/charset/dungeon assets
+	# .ASP assets — ship ONLY the NON-regenerable ones. Any ASP that tu4-setup
+	# can regenerate from the user's Ultima IV data (i.e. one that has a matching
+	# baseline in graphics/converters/baselines_EGA/) is NOT shipped; it is
+	# generated on first run into ~/.local/share/tu4/graphics/EGA/.
+	BASELINES="$ROOT_DIR/graphics/converters/baselines_EGA"
 	for f in "$src"/*.ASP; do
 		[ -e "$f" ] || continue
+		base=$(basename "$f")
+		# skip regenerable assets (present in the baselines set)
+		if [ -e "$BASELINES/$base" ]; then
+			continue
+		fi
+		# skip the TITLE upper-region SOURCE (shipped separately as a setup input)
+		if [ "$base" = "title-upper.ASP" ]; then
+			continue
+		fi
 		install -m 644 "$f" "$dst"
 	done
 	# charset binary needed by the U5-EGA theme, if present

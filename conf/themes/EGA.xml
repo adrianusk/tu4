@@ -21,11 +21,11 @@
         <image name="title" filename="EGA/TITLE.ASP"
                filetype="image/x-asp-screen" introOnly="true">
             <subimage name="intro_signature" x="1"  y="2"  width="80" height="3"/>
-            <subimage name="intro_and"       x="39"  y="5"  width="5" height="1"/>
+            <subimage name="intro_and"       x="40"  y="5"  width="3" height="1"/>
             <subimage name="intro_bar"       x="21" y="8"  width="41" height="1"/>
             <subimage name="intro_origin"    x="1"  y="5"  width="80" height="3"/>
-            <subimage name="intro_present"   x="37" y="9" width="13"  height="1"/>
-            <subimage name="intro_title"     x="16"  y="10" width="50" height="11"/>
+            <subimage name="intro_present"   x="35" y="9" width="13"  height="1"/>
+            <subimage name="intro_title"     x="16"  y="10" width="51" height="11"/>
             <subimage name="intro_subtitle"  x="1"  y="21" width="80" height="4"/>
             <subimage name="options_top" x="1" y="5"  width="80" height="16"/>
             <subimage name="options_btm" x="1" y="15" width="80" height="10"/>
