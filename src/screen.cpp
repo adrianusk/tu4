@@ -216,6 +216,25 @@ void screenReInit() {
         screenMakeDungeonView();
 }
 
+/*
+ * Resize the output window for a scale/fullscreen change ONLY.
+ *
+ * A scale (or fullscreen) change alters only the on-screen window size; the
+ * logical framebuffer and every loaded graphics asset are unchanged (the text
+ * style is the same). So unlike screenReInit() this must NOT delete/reload the
+ * ImageMgr, tiles, tile-anims or dungeon view — doing so is wasted work and
+ * invalidates cached ImageInfo pointers (e.g. the intro's beastiesImg), which
+ * made the intro beasties/ANIMATE stop drawing after a scale change.
+ *
+ * screenInit_sys(reset=1) re-reads settings->scale and resizes the SDL window;
+ * the renderer keeps its logical size + nearest scaling, so the same
+ * framebuffer is simply scaled to the new window.
+ */
+void screenResize() {
+    int dim[4] = {0, 0, SCREEN_COLS * 8, SCREEN_ROWS * 8};
+    screenInit_sys(tu4.settings, dim, 1);
+}
+
 void screenRefreshTimerInit() {
     /* Timer-based refresh handled by event loop */
 }

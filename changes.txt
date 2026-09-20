@@ -1,6 +1,44 @@
 tu4-1.0 Changes
 ================
 
+2026-09-20: Fix intro beasties (ANIMATE) vanishing after a Scale change
+-----------------------------------------------------------------------
+Fixed a bug where changing Scale (or fullscreen) in the Configure menu's
+Video settings made the intro beasties / ANIMATE stop drawing.
+
+Root cause:
+- A scale/fullscreen change called screenReInit(), the heavy path meant
+  for a TEXT-STYLE change. screenReInit() does "delete tu4.imageMgr; new
+  ImageMgr" (plus Tileset::unloadImages/loadImages, tile-anim and dungeon
+  view teardown), which frees every ImageInfo.
+- The intro caches a raw ImageInfo* (beastiesImg = imageMgr->get(
+  BKGD_ANIMATE), set in IntroController::init()). After screenReInit()
+  freed the old ImageMgr, that cached pointer dangled, so the beasties
+  no longer drew. The text-style path recovers by re-running init()
+  afterward; the scale path did not (and should not need to).
+- A scale change only alters the on-screen window size. The logical
+  framebuffer, the loaded ImageMgr/ImageInfo pixels, tiles, tile-anims
+  and dungeon-view caches are all unchanged (the text style is the same),
+  so reloading them is both wasted work and the cause of the dangling
+  pointer.
+
+Fix:
+- Added screenResize() (src/screen.{h,cpp}): the window-resize-only path.
+  It calls screenInit_sys(reset=1) and nothing else -- no ImageMgr delete,
+  no Tileset reload, no tile-anim/dungeon-view teardown. The renderer keeps
+  its logical size + nearest scaling, so the same framebuffer is simply
+  scaled to the new window.
+- IntroController::updateVideoMenu() (src/intro.cpp) now calls
+  screenResize() for a scale/fullscreen change instead of screenReInit().
+  A text-style change is unchanged: it still defers the full screenReInit()
+  + init() reload to the 'c' handler on menu close.
+
+Result: all loaded assets (including the intro's cached beastiesImg) stay
+valid across a scale change, so the beasties keep animating; the window
+still resizes as before. Verified in-game (user-tested): changing Scale in
+the Configure menu resizes the window and the beasties continue to draw.
+Header changed, so built with make clean && make; binary copied.
+
 2026-09-12: Fix creature drawn over a door/room face in the 3D dungeon view
 ---------------------------------------------------------------------------
 Fixed a bug where a creature standing on a DOOR (or room) tile two steps

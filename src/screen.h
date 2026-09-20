@@ -125,6 +125,11 @@ void screenInit(void);
 void screenRefreshTimerInit(void);
 void screenDelete(void);
 void screenReInit(void);
+/* Resize the output window only (scale/fullscreen change). Unlike
+   screenReInit(), this does NOT reload any graphics assets — the loaded
+   ImageMgr, tiles, tile-anims and cached image pointers stay valid, because
+   the text style is unchanged. */
+void screenResize(void);
 void screenSwapBuffers();
 void screenWait(int numberOfAnimationFrames);
 #define screenUploadToGPU()

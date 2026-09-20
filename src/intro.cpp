@@ -1531,11 +1531,14 @@ void IntroController::updateVideoMenu(MenuEvent &event) {
                  * config menu is fully exited (back at the main menu) so we
                  * don't repaint while the menu is still open — see the 'c'
                  * handler in keyPressed(). Scale/fullscreen only resize the
-                 * window, which is safe to apply immediately. */
+                 * window (no asset reload — the text style is unchanged), which
+                 * is safe to apply immediately. Using screenResize() here (not
+                 * screenReInit()) keeps the loaded assets and the intro's
+                 * cached beastiesImg valid, so the beasties keep drawing. */
                 if (styleChanged)
                     textStyleChanged = true;
                 else if (scaleChanged)
-                    screenReInit();
+                    screenResize();
 
                 // go back to menu mode
                 mode = INTRO_MENU;
