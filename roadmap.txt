@@ -1,34 +1,28 @@
 tu4-1.0 Roadmap
 ===============
 
-NEXT: Initiate New Game
-------------------------
-Prepare artwork in ASP (BSAVE text-mode) format for the
-"Initiate New Game" sequence.
+STATUS (2026-09-20)
+-------------------
+tu4 1.0 is feature-complete and playable in text mode. The full game loop is
+integrated with the xu4 engine: title/intro sequence, "Initiate New Game"
+character creation (gypsy questions + virtue cards), "Journey Onward" (load
+saved game), main menu, Configure menu, world/town/city/castle rendering,
+combat, the first-person 3D dungeon view, and the gem/peer views all work.
+See README.md ("Status") and changes.txt for the detailed feature list.
 
-ASP files store 80x50 text-mode screens (8000 bytes payload + 7 byte
-BSAVE header = 8007 bytes). Each cell is 2 bytes: character + attribute.
-These go in the graphics/ directory alongside TITLE.ASP and MYSHAPES.ASP.
+The items that used to head this file ("NEXT: Initiate New Game" and a
+bottom to-do list of Journey Onward / Configure menu / Dungeon view / Combat /
+Town-city interaction) are all DONE and have been removed.
 
-Asset files to prepare (illustrations for story sequence):
+Asset delivery (2026-09-19/20, DONE): the package ships only the assets that
+cannot be derived from Ultima IV; the rest (intro/story screens, codex/shrine
+screens, dungeon object/monster tiles, TITLE, virtue cards) are regenerated on
+first run by the bundled tu4-setup tool. See .kiro/steering/tu4-setup-pipeline.md.
 
-  TREE.ASP      - Forest/tree scene (storyInd 0-5, 11-14)
-  PORTAL.ASP    - Moongate/portal scene (storyInd 6-10)
-  OUTSIDE.ASP   - Outside scene (storyInd 15-16)
-  INSIDE.ASP    - Inside building scene (storyInd 17-19)
-  WAGON.ASP     - Gypsy wagon scene (storyInd 20)
-  GYPSY.ASP     - Gypsy fortune teller scene (storyInd 21-22)
-  ABACUS.ASP    - Abacus/cards scene (storyInd 23, also questions)
-
-Name entry and sex selection use no illustration (just text prompts
-over the existing intro screen, same as xu4).
-
-Implementation notes:
-- Text entry cursor (blinking block) needed for name input
-- Single character input for sex (M/F) and question answers (A/B)
-- Story text comes from TITLE.EXE string table (introText[0..23])
-- Gypsy question text from TITLE.EXE string table (introGypsy[])
-- drawCard() renders virtue cards on ABACUS illustration during questions
+Theme auto-discovery (2026-09-20, DONE): themes are discovered from
+conf/themes/*.xml (gated on graphics/<NAME>/ being installed) and loaded
+lazily, one active theme at a time. Drop conf/themes/NAME.xml +
+graphics/NAME/*.ASP in place and it appears in Configure -> Text Style.
 
 
 FUTURE
@@ -38,56 +32,54 @@ FUTURE
   palette (e.g. the Pepto C64 palette instead of EGA), instead of the
   compile-time defaults.
 
-  Glyph font: DONE (2026-09-13). The SDL2 backend now loads the active
+  Glyph font: DONE (2026-09-13, SDL2). The SDL2 backend loads the active
   theme's glyph bitmap from graphics/<textStyle>/cp437_8x8.bin (256 chars
   x 8 bytes = 2048 bytes, MSB-first per row: bit 0x80 = leftmost pixel).
-  If the file is absent or the wrong size it falls back to the compiled-in
-  cp437_font[] (cp437_8x8.h). Reloaded on Text Style change via
-  screenInit_sys. loadThemeFont() + activeFont in screen_sdl2.cpp.
+  Absent/wrong-size -> falls back to the compiled cp437_font[] (cp437_8x8.h).
+  Reloaded on Text Style change via screenInit_sys. loadThemeFont() +
+  activeFont in screen_sdl2.cpp.
     * GOTCHA: the shipped theme cp437_8x8.bin files had been stored
-      LSB-first (bit-mirrored); they were regenerated MSB-first to match
-      the renderer (old copies kept as *.bin.lsb.bak). Any new theme font
-      must be MSB-first or glyphs render horizontally mirrored.
-    * TODO: mirror this in screen_sdl3.cpp (still uses compiled cp437_font
+      LSB-first (bit-mirrored); regenerated MSB-first to match the renderer
+      (old copies kept as *.bin.lsb.bak). Any new theme font must be
+      MSB-first or glyphs render horizontally mirrored.
+    * TODO: mirror in screen_sdl3.cpp (still uses the compiled cp437_font
       directly). Only the SDL2 backend is wired so far.
 
-  Colour palette: DONE for SDL2 (2026-09-13). The backend loads the active
+  Colour palette: DONE (2026-09-13, SDL2). The backend loads the active
   theme's 16-colour palette from graphics/<textStyle>/palette.bin, a flat
   48-byte file (16 colours x 3 bytes RGB, EGA index order matching the
-  attribute nibbles). Falls back to the compiled egaPalette[16] if the file
-  is absent or the wrong size. Reloaded on Text Style change.
-  loadThemePalette() + activePalette in screen_sdl2.cpp.
+  attribute nibbles). Absent/wrong-size -> falls back to the compiled
+  egaPalette[16]. Reloaded on Text Style change. loadThemePalette() +
+  activePalette in screen_sdl2.cpp.
     * Format reuses playscii palettes: graphics/converters/png2pal.py
       converts a playscii palette PNG (e.g. playscii/palettes/ega.png,
       c64_pepto.png) into palette.bin by scanning unique colours L->R/T->B
-      (playscii's own ordering). The shipped U5-EGA/EGA palette.bin were
-      generated from ega.png and are byte-equal to the compiled EGA palette
-      (transparent fallback). converters/pepto.bin is ready for a future
+      (playscii's own ordering). converters/pepto.bin is ready for a future
       C64/Pepto theme.
-    * TODO: mirror in screen_sdl3.cpp (still uses compiled egaPalette).
+    * TODO: mirror in screen_sdl3.cpp (still uses the compiled egaPalette).
 
-- Alternate screen and tile sizes: currently the display is fixed at
-  80x50 characters with 4x4-character tiles. Plan to support larger
-  screens (80x60 or 100x60) with 5x5-character tiles.
+- Alternate screen and tile sizes: the display is currently fixed at 80x50
+  characters with 4x4-character tiles. Plan to support larger screens
+  (80x60 or 100x60) with 5x5-character tiles.
 
   Prep DONE (2026-09-13): "de-magic-number" pass — the scattered literal
-  80/50 values were replaced with named constants in screen.h that
-  separate the two roles they conflated:
+  80/50 values were replaced with named constants in screen.h that separate
+  the two roles they conflated:
     * SCREEN_COLS / SCREEN_ROWS       — destination text-screen size
     * ASP_SCREEN_COLS / ASP_SCREEN_ROWS / ASP_SCREEN_SIZE
                                       — full-screen ASP background stride/size
   (Behaviour-preserving: all constants still evaluate to 80/50/8000.)
 
   Remaining work (the actual behavioural change):
-    * Make tile size theme-driven. TILE_WIDTH/TILE_HEIGHT are still a
-      global #define in u4.h; the <image name="tiles" width= height=>
-      attributes already exist in graphics-text.xml but are ignored.
-      A 5x5-tile theme ships 5x5 tile art, so tile size logically belongs
-      to the imageset, not a compile-time constant.
-    * Recompute the derived layout areas that are tuned to 80x50:
-      VIEWPORT_W/H (11 tiles -> at 5x5 that is 55 chars, no longer fits a
-      44-char map area), TEXT_AREA_*, STATS_AREA_*, WIND_AREA_*, MOON_*,
-      BORDER_*. Verify wrapping math (steering rule 3: viewport <= 2x map).
+    * Make tile size theme-driven. TILE_WIDTH/TILE_HEIGHT are still a global
+      #define in u4.h; the <image name="tiles" width= height=> attributes
+      already exist in the theme XML but are ignored. A 5x5-tile theme ships
+      5x5 tile art, so tile size logically belongs to the imageset, not a
+      compile-time constant.
+    * Recompute the derived layout areas tuned to 80x50: VIEWPORT_W/H
+      (11 tiles -> at 5x5 that is 55 chars, no longer fits a 44-char map
+      area), TEXT_AREA_*, STATS_AREA_*, WIND_AREA_*, MOON_*, BORDER_*. Verify
+      wrapping math (steering rule 3: viewport <= 2x map).
     * Re-author every full-screen ASP asset (TITLE/START/ANIMATE/TREE/...)
       to the new screen dimensions; ASP_SCREEN_SIZE changes accordingly.
     * Decide the axis of variation: is a "5x5 / 100x60" config a new THEME,
@@ -95,17 +87,18 @@ FUTURE
       screen size)? Leaning: tile size -> per-theme; screen size + derived
       areas -> a selectable layout profile a theme can require.
 
+- Dungeon wall per-heading colour for non-EGA themes. (2026-09-12) The EGA
+  theme uses separate _ew/_ns ASP files so a wall's colour tracks its world
+  orientation like xu4's EGA (side walls dungeonhall blue/green, facing walls
+  dung0ma green/blue; fixup="dungns"). U5-EGA and PC9801 still share one file
+  per orientation (both orientations look identical); give them separate _ns
+  art if per-heading colour is wanted there too. tu4's fixupDungNS is a no-op
+  stub (no text-mode pixel swap); the split is done with pre-coloured files,
+  not a load-time swap.
 
-  (2026-09-12) — separate _ew/_ns ASP files, side walls (dungeonhall)
-  blue/green and facing walls (dung0ma) green/blue, so a wall's colour
-  tracks its world orientation like xu4's EGA (fixup="dungns"). U5-EGA
-  and PC9801 STILL share one file per orientation (both orientations look
-  identical); give them separate _ns art if per-heading colour is wanted
-  there too. tu4's fixupDungNS remains a no-op stub (no text-mode pixel
-  swap); the split is done with pre-coloured files, not a load-time swap.
-
-- SDL3 Migration (screen_sdl3.cpp, event_sdl3.cpp, sound_sdl3.cpp)
-  Key SDL3 changes:
+- SDL3 migration (screen_sdl3.cpp, event_sdl3.cpp, sound_sdl3.cpp). The SDL3
+  backend files exist but are not the default build (SDL3_mixer is unavailable
+  on the dev system, so UI=sdl2 is the shipping default). Key SDL3 changes:
     Display: SDL_CreateWindow(title,w,h,flags), SDL_CreateRenderer(win,NULL),
              SDL_RenderTexture() replaces SDL_RenderCopy(),
              SDL_SetRenderLogicalPresentation() replaces SDL_RenderSetLogicalSize(),
@@ -123,10 +116,11 @@ FUTURE
              MIX_SetMixerGain (replaces Mix_MasterVolume),
              MIX_DestroyMixer (replaces Mix_CloseAudio)
     Build:   -lSDL3 -lSDL3_mixer, include <SDL3/SDL.h>, <SDL3_mixer/SDL_mixer.h>
+  Also: mirror the per-theme font/palette loading (above) into the SDL3
+  backend, which still uses the compiled defaults.
 
-- Journey Onward (load saved game)
-- Configure menu
-- Full game loop integration with xu4 engine
-- Dungeon view in text mode
-- Combat in text mode
-- Town/city interaction in text mode
+- Gameplay ideas inherited from xu4 (nice-to-have, not scheduled):
+    * Ultima 5 style aiming in combat (angle shots).
+    * More sound effects.
+    * Allow the map view to display more of the world.
+    * A formal modding system to extend the world or create new adventures.
