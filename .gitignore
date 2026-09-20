@@ -104,3 +104,12 @@
 /graphics/EGA/VALJUS.ASP
 /graphics/EGA/SACHONOR.ASP
 /graphics/EGA/SPIRHUM.ASP
+
+# ============================================================================
+# Text-mode theme fragments (conf/themes/): ship ONLY the active EGA theme.
+# Other theme fragments (U5-EGA, PC9801, ...) are kept as local dev working
+# copies but NOT tracked/shipped -- their graphics/<NAME>/ assets aren't
+# shipped either, so auto-discovery gates them out on a normal install.
+# ============================================================================
+/conf/themes/*.xml
+!/conf/themes/EGA.xml
