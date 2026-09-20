@@ -1,6 +1,55 @@
 tu4-1.0 Changes
 ================
 
+2026-09-20: Auto-discover text-mode themes; load only the active theme
+-----------------------------------------------------------------------
+Themes (Text Style entries) are now auto-discovered from theme fragment
+files and loaded lazily -- one theme at a time -- instead of being
+hardcoded via XInclude in conf/graphics-text.xml.
+
+Motivation:
+- Adding a theme previously required editing conf/graphics-text.xml to add
+  an <xi:include> for themes/<NAME>.xml. libxml then spliced EVERY included
+  theme's ~27KB fragment into the <graphics> element at startup, even though
+  only one theme is ever active.
+
+New behaviour (drop-in):
+- Drop conf/themes/<NAME>.xml (root <themefrag> with one imageset name=
+  "<NAME>" + one tileanimset name="<NAME>") and graphics/<NAME>/*.ASP in
+  place; the theme appears in the Configure menu's Text Style list
+  automatically. No edit to graphics-text.xml is needed.
+- Discovery is GATED on the assets being installed: a theme is listed only
+  if graphics/<NAME>/CHARSET.ASP is found on the resource path. A fragment
+  without its asset dir does not appear (verified: a stray themes/GHOST.xml
+  with no graphics/GHOST/ is skipped).
+- Only the ACTIVE theme's fragment is ever parsed. newScheme() and
+  newTileAnims() parse conf/themes/<NAME>.xml on demand (xmlReadFile of the
+  single fragment), so the other themes' fragments are never read (verified:
+  with EGA active, only themes/EGA.xml is opened).
+
+Implementation:
+- src/u4file.{h,cpp}: new u4find_themeNames() -- scans each config search
+  path's themes/ directory (dirent) for *.xml and returns the de-duplicated
+  base names.
+- src/config_xml.cpp: the ConfigXML ctor now reads only the shared <layout>
+  elements from the <graphics> aggregator, and builds schemeNames() from
+  u4find_themeNames() gated on u4find_graphics(NAME + "/CHARSET.ASP").
+  newScheme() takes the scheme id, maps it to its name, and parses only
+  conf/themes/<NAME>.xml for the <imageset>. newTileAnims(name) parses the
+  same fragment for the matching <tileanimset>.
+- conf/graphics-text.xml: removed the per-theme XInclude (the base EGA
+  include); the aggregator now contributes only the shared, theme-
+  independent gem/peer <layout> geometry.
+
+Note: the gate keys on graphics/<NAME>/ being installed, so in a full dev
+tree (where several themes' asset dirs exist) more than one Text Style may
+appear. In the shipped package only graphics/EGA/ is installed, so only EGA
+is listed -- as intended.
+
+Verified: EGA still lists and loads (imageset + tile anims + intro art);
+gating positive/negative cases confirmed; only the active theme parsed.
+Header (u4file.h) changed, so built with make clean && make; binary copied.
+
 2026-09-20: Fix intro beasties (ANIMATE) vanishing after a Scale change
 -----------------------------------------------------------------------
 Fixed a bug where changing Scale (or fullscreen) in the Configure menu's

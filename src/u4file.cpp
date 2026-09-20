@@ -5,6 +5,8 @@
 #include <cctype>
 #include <cstring>
 #include <cstdlib>
+#include <dirent.h>
+#include <set>
 
 #include "u4file.h"
 #include "unzip.h"
@@ -717,5 +719,46 @@ string u4find_conf(const string &fname) {
 
 string u4find_graphics(const string &fname) {
     return u4find_path(fname.c_str(), &u4Path.graphicsPaths);
+}
+
+std::vector<std::string> u4find_themeNames() {
+    std::vector<std::string> names;
+    std::set<std::string> seen;
+
+    // Scan every rootResourcePath x configPath combination for a "themes"
+    // subdirectory, collecting the base name of each *.xml fragment. This
+    // mirrors how u4find_conf() resolves a config file, but lists a directory.
+    std::list<string>::iterator root;
+    for (root = u4Path.rootResourcePaths.begin();
+         root != u4Path.rootResourcePaths.end(); ++root) {
+        std::list<string>::iterator cfg;
+        for (cfg = u4Path.configPaths.begin();
+             cfg != u4Path.configPaths.end(); ++cfg) {
+            string dirPath = *root + "/" + *cfg + "/themes";
+            DIR* dir = opendir(dirPath.c_str());
+            if (!dir)
+                continue;
+            struct dirent* ent;
+            while ((ent = readdir(dir)) != NULL) {
+                string fn(ent->d_name);
+                size_t len = fn.size();
+                // require a ".xml" suffix (case-insensitive) and a non-empty base
+                if (len < 5)
+                    continue;
+                string ext = fn.substr(len - 4);
+                for (size_t i = 0; i < ext.size(); ++i)
+                    ext[i] = (char) tolower((unsigned char) ext[i]);
+                if (ext != ".xml")
+                    continue;
+                string base = fn.substr(0, len - 4);
+                if (base.empty())
+                    continue;
+                if (seen.insert(base).second)
+                    names.push_back(base);
+            }
+            closedir(dir);
+        }
+    }
+    return names;
 }
 #endif

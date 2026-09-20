@@ -102,4 +102,10 @@ std::string u4find_sound(const std::string &fname);
 std::string u4find_conf(const std::string &fname);
 std::string u4find_graphics(const std::string &fname);
 
+/* Return the base names (without ".xml") of every theme fragment found in a
+   "themes" subdirectory of any config search path (e.g. conf/themes/EGA.xml
+   -> "EGA"). Names are de-duplicated; order is unspecified. Used to
+   auto-discover selectable text-mode themes. */
+std::vector<std::string> u4find_themeNames();
+
 #endif

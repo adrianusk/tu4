@@ -909,19 +909,34 @@ ConfigXML::ConfigXML() {
     }
     }
 
-    // schemeNames
+    // Shared, theme-independent layouts still come from the <graphics>
+    // aggregator (conf/graphics-text.xml). Theme imagesets/tileanimsets are
+    // NO LONGER aggregated there via XInclude -- they are discovered and
+    // parsed lazily per theme (see schemeNames() discovery + newScheme()).
     {
     vector<ConfigElement> ce = getElement("graphics").getChildren();
     vector<ConfigElement>::const_iterator it  = ce.begin();
     vector<ConfigElement>::const_iterator end = ce.end();
     for (; it != end; ++it) {
-        if (it->getName() == "imageset") {
-            xcd.schemeNames.push_back(it->getString("name"));
-        } else if (it->getName() == "layout") {
+        if (it->getName() == "layout") {
             Layout lo;
             conf_loadLayout(xcd.sym, &lo, *it);
             xcd.layouts.push_back(lo);
         }
+    }
+    }
+
+    // schemeNames: auto-discover text-mode themes by scanning conf/themes/*.xml,
+    // keeping only those whose graphics/<NAME>/ asset dir is present (gated on
+    // CHARSET.ASP, which every theme ships). A theme fragment without its
+    // assets installed does not appear in the Text Style menu.
+    {
+    vector<string> themes = u4find_themeNames();
+    vector<string>::iterator it;
+    for (it = themes.begin(); it != themes.end(); ++it) {
+        string probe = *it + "/CHARSET.ASP";
+        if (!u4find_graphics(probe).empty())
+            xcd.schemeNames.push_back(*it);
     }
     }
 
@@ -1571,18 +1586,39 @@ static ImageSet* loadImageSet(ConfigXML* cfg, const ConfigElement &conf) {
  * Return ImageSet pointer which caller must delete.
  */
 ImageSet* Config::newScheme( uint32_t id ) {
-    uint32_t n = 0;
-    vector<ConfigElement> ce = CX->getElement("graphics").getChildren();
-    vector<ConfigElement>::const_iterator it  = ce.begin();
-    vector<ConfigElement>::const_iterator end = ce.end();
-    for (; it != end; ++it) {
-        if (it->getName() == "imageset") {
-            if( n == id )
-                return loadImageSet((ConfigXML*) this, *it);
-            ++n;
+    // Map the scheme id (index into schemeNames()) back to its name, then load
+    // that theme's imageset by parsing ONLY conf/themes/<NAME>.xml. Themes are
+    // no longer aggregated into the main <graphics> element via XInclude, so
+    // only the active theme's fragment is ever parsed.
+    if (id >= CB->schemeNames.size())
+        return NULL;
+    const string& name = CB->schemeNames[id];
+
+    string path = u4find_conf("themes/" + name + ".xml");
+    if (path.empty()) {
+        errorWarning("theme fragment themes/%s.xml not found", name.c_str());
+        return NULL;
+    }
+
+    xmlDocPtr doc = xmlReadFile(path.c_str(), NULL, XML_PARSE_NOENT);
+    if (!doc) {
+        errorWarning("failed to parse theme fragment %s", path.c_str());
+        return NULL;
+    }
+
+    ImageSet* result = NULL;
+    xmlNodePtr root = xmlDocGetRootElement(doc);   // <themefrag>
+    if (root) {
+        for (xmlNodePtr child = root->children; child; child = child->next) {
+            if (child->type == XML_ELEMENT_NODE &&
+                xmlStrcmp(child->name, (const xmlChar*)"imageset") == 0) {
+                result = loadImageSet((ConfigXML*) this, ConfigElement(child));
+                break;
+            }
         }
     }
-    return NULL;
+    xmlFreeDoc(doc);
+    return result;
 }
 
 /**
@@ -1750,19 +1786,33 @@ static void conf_loadTileAnimSet(SymbolTable& sym, TileAnimSet* ts, const Config
  * Return TileAnimSet pointer which caller must delete.
  */
 TileAnimSet* Config::newTileAnims(const char* name) const {
-    vector<ConfigElement> ce = CX->getElement("graphics").getChildren();
-    vector<ConfigElement>::iterator it;
-    foreach (it, ce) {
-        if (it->getName() == "tileanimset") {
-            /* find the tile animations for our tileset */
-            if (it->getString("name") == name) {
-                TileAnimSet* tanim = new TileAnimSet;
-                conf_loadTileAnimSet(CB->sym, tanim, *it);
-                return tanim;
+    // Load the active theme's tile animations by parsing ONLY
+    // conf/themes/<NAME>.xml (matching newScheme()'s lazy per-theme model).
+    string path = u4find_conf(string("themes/") + name + ".xml");
+    if (path.empty())
+        return NULL;
+
+    xmlDocPtr doc = xmlReadFile(path.c_str(), NULL, XML_PARSE_NOENT);
+    if (!doc)
+        return NULL;
+
+    TileAnimSet* result = NULL;
+    xmlNodePtr root = xmlDocGetRootElement(doc);   // <themefrag>
+    if (root) {
+        for (xmlNodePtr child = root->children; child; child = child->next) {
+            if (child->type == XML_ELEMENT_NODE &&
+                xmlStrcmp(child->name, (const xmlChar*)"tileanimset") == 0) {
+                ConfigElement ce(child);
+                if (ce.getString("name") == name) {
+                    result = new TileAnimSet;
+                    conf_loadTileAnimSet(CB->sym, result, ce);
+                    break;
+                }
             }
         }
     }
-    return NULL;
+    xmlFreeDoc(doc);
+    return result;
 }
 
 //--------------------------------------
