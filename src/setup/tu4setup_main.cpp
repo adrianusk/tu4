@@ -25,8 +25,45 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <cerrno>
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  include <direct.h>
+#  define TU4_MKDIR(p) _mkdir(p)
+#else
+#  define TU4_MKDIR(p) ::mkdir((p), 0777)
+#endif
 
 using namespace tu4setup;
+
+// Portable recursive directory create (like `mkdir -p`), no shelling out.
+// Accepts either '/' or '\\' separators; creates each ancestor in turn and
+// treats "already exists" as success. Returns true if the full path exists
+// as a directory afterwards.
+static bool makeDirs(const std::string &path) {
+    if (path.empty()) return false;
+    std::string p = path;
+    for (char &c : p) if (c == '\\') c = '/';        // normalize separators
+    std::string cur;
+    size_t i = 0;
+    // Preserve a leading '/' (POSIX root) or drive prefix like "C:".
+    if (p[0] == '/') { cur = "/"; i = 1; }
+    for (; i <= p.size(); ++i) {
+        if (i == p.size() || p[i] == '/') {
+            if (!cur.empty() && cur != "/" &&
+                !(cur.size() == 2 && cur[1] == ':')) {   // skip bare drive "C:"
+                if (TU4_MKDIR(cur.c_str()) != 0 && errno != EEXIST)
+                    return false;
+            }
+            if (i < p.size()) { cur += '/'; }
+        } else {
+            cur += p[i];
+        }
+    }
+    struct stat st;
+    return stat(path.c_str(), &st) == 0 && (st.st_mode & S_IFDIR);
+}
 
 // ---- Read whole file -------------------------------------------------------
 static bool readFile(const char *path, std::vector<uint8_t> &out) {
@@ -288,29 +325,53 @@ int main(int argc, char *argv[]) {
     auto exists = [](const std::string &p){ FILE *f=std::fopen(p.c_str(),"rb"); if(f){std::fclose(f);return true;} return false; };
     auto dirExists = [&](const std::string &p){ return exists(p + "/."); };
     if (batch) {
-        const char *INST = "/usr/share/tu4/setup";
-        bool installed = dirExists(INST);
-        if (!fontPath || !exists(fontPath))
-            sFont = installed ? std::string(INST) + "/cp437_8x8.bin"
-                              : std::string("graphics/converters/cp437_8x8.bin");
-        else sFont = fontPath;
-        sDiffs = diffsDir ? diffsDir
-               : (installed ? std::string(INST) + "/aspdiff"
-                            : std::string("mod/EGA"));
-        sTitle = titleUpperAsp ? titleUpperAsp
-               : (installed ? std::string(INST) + "/title-upper.ASP"
-                            : std::string("graphics/EGA/title-upper.ASP"));
+        // Resolve the setup data (font, .aspdiff patches, TITLE upper region)
+        // from the FIRST layout that exists, so the user can just run
+        // `tu4-setup --all` with no flags in any install shape:
+        //   1) explicit flags (--font/--diffs/--title-upper) always win;
+        //   2) a "setup/" folder next to the game (the shipped Windows .zip /
+        //      installer AND a Linux "cd into the game dir" run): setup/
+        //      cp437_8x8.bin, setup/aspdiff, setup/title-upper.ASP;
+        //   3) the .deb install layout: /usr/share/tu4/setup/...;
+        //   4) the dev source tree: graphics/converters/, mod/EGA/, graphics/EGA/.
+        // EGA is the only shipped theme, so these defaults target it directly.
+        const char *LOCAL = "setup";                 // next to the exe / CWD
+        const char *INST  = "/usr/share/tu4/setup";  // .deb
+        bool haveLocal = exists(std::string(LOCAL) + "/cp437_8x8.bin");
+        bool haveInst  = dirExists(INST);
+        std::string base = haveLocal ? LOCAL : (haveInst ? INST : std::string());
+
+        if (fontPath && exists(fontPath))            sFont = fontPath;
+        else if (!base.empty())                      sFont = base + "/cp437_8x8.bin";
+        else                                         sFont = "graphics/converters/cp437_8x8.bin";
+
+        if (diffsDir)                                sDiffs = diffsDir;
+        else if (!base.empty())                      sDiffs = base + "/aspdiff";
+        else                                         sDiffs = "mod/EGA";
+
+        if (titleUpperAsp)                           sTitle = titleUpperAsp;
+        else if (!base.empty())                      sTitle = base + "/title-upper.ASP";
+        else                                         sTitle = "graphics/EGA/title-upper.ASP";
         if (outDir) sOut = outDir;
         else {
+#if defined(_WIN32) || defined(__CYGWIN__)
+            // On Windows the game searches its resource roots (".", "C:", ...)
+            // for graphics/<theme>/, NOT %APPDATA% (that holds only settings/
+            // saves). So regenerated assets must land next to the game in
+            // ./graphics/EGA. (%APPDATA% is intentionally NOT used here.)
+            sOut = "graphics\\EGA";
+#else
             const char *home = std::getenv("HOME");
-            if (home && home[0]) {
+            if (home && home[0])
                 sOut = std::string(home) + "/.local/share/tu4/graphics/EGA";
-                // best-effort create the output dir tree
-                std::string cmd = "mkdir -p '" + sOut + "'";
-                if (std::system(cmd.c_str()) != 0)
-                    std::fprintf(stderr, "tu4-setup: warning: could not create %s\n", sOut.c_str());
-            } else sOut = ".";
+            else
+                sOut = "graphics/EGA";
+#endif
         }
+        // best-effort create the output dir tree (portable, no shell-out),
+        // whether it came from --out or the platform default.
+        if (!makeDirs(sOut))
+            std::fprintf(stderr, "tu4-setup: warning: could not create %s\n", sOut.c_str());
         fontPath = sFont.c_str(); diffsDir = sDiffs.c_str();
         titleUpperAsp = sTitle.c_str(); outDir = sOut.c_str();
         std::fprintf(stderr, "tu4-setup: writing regenerated EGA assets to %s\n", outDir);

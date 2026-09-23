@@ -1,6 +1,150 @@
 tu4-1.0 Changes
 ================
 
+2026-09-24: tu4-setup runs with no flags (auto-discover setup/ data)
+-------------------------------------------------------------------
+`tu4-setup --all` now works with NO extra flags on every install layout, so
+users are not forced to pass --font/--diffs/--title-upper/--out. Previously the
+batch defaults only knew two layouts -- the .deb (/usr/share/tu4/setup) and the
+dev source tree (graphics/converters/, mod/EGA/, graphics/EGA/) -- so in the
+shipped Windows package (font+patches in a setup/ folder next to the exe) a bare
+`tu4-setup.exe --all` failed with "cannot read font
+graphics/converters/cp437_8x8.bin".
+
+Fix (src/setup/tu4setup_main.cpp): the batch data (font, .aspdiff patches, TITLE
+upper region) is now resolved from the first layout that exists:
+  1) explicit --font/--diffs/--title-upper (always win);
+  2) a "setup/" folder next to the game (Windows .zip/installer, or a Linux
+     "cd into the game dir" run): setup/cp437_8x8.bin, setup/aspdiff,
+     setup/title-upper.ASP;
+  3) the .deb layout /usr/share/tu4/setup/...;
+  4) the dev source tree.
+EGA is the only shipped theme, so these defaults target it directly; the output
+still defaults per-platform (Windows: graphics\EGA next to the exe; Linux:
+~/.local/share/tu4/graphics/EGA). The shipped setup/README.txt and the installer
+shortcut + post-install step were simplified to just `tu4-setup.exe --all`.
+
+Verified under wine: a bare `tu4-setup.exe --all` in the installed package
+auto-finds ./ultima4 + setup/ and regenerates the 36 assets (complete 89-file
+EGA set); the deb-built binary is flagless too; native Linux + .deb rebuilt.
+
+2026-09-24: Windows dist packaging correctness (assets, sigdata, traps, U5-EGA)
+-------------------------------------------------------------------------------
+Fixed several issues in the Windows dist (Makefile.mingw `dist`) found while
+test-installing the package. All are packaging/asset fixes; no game logic
+changed.
+
+1. Do NOT ship the tu4-setup-regenerable assets. The dist was copying
+   `graphics/EGA/*.ASP` wholesale, which included all 36 assets tu4-setup is
+   meant to regenerate from the user's Ultima IV data (TREE, GYPSY, the codex/
+   rune/virtue screens, DUNGOBJ0/1, DUNGNPC1, TITLE, ...). That both let the
+   user bypass tu4-setup entirely AND shipped U4-derived art we should not
+   distribute. The dist now mirrors packaging/build-deb.sh `copy_asp`: ship
+   only the NON-regenerable .ASP (skip any name in mod/EGA/regenerable.list),
+   and skip the TITLE upper-region SOURCE (title-upper.ASP, which ships under
+   setup/ as a tu4-setup input). tu4-setup fills in the 36 on first run.
+
+2. sigdata.txt was going to the wrong place. The dist copied
+   `conf/sigdata.txt` -> `conf/`, but the intro loads the signature-animation
+   coordinates from `graphics/<theme>/sigdata.txt`
+   (intro.cpp: u4find_graphics(textStyle + "/sigdata.txt")). So the Lord
+   British signature animation never played on Windows. The dist now copies
+   `graphics/EGA/sigdata.txt` into `graphics/EGA/` (alongside cp437_8x8.bin and
+   palette.bin), matching where the game reads it; the stray conf/ copy is
+   dropped.
+
+3. traps ASP: fixed a latent wrong-theme asset + a Windows case-collision.
+   graphics/EGA/ held BOTH `traps.ASP` (the correct EGA trap art) and
+   `TRAPS.ASP` (byte-identical to graphics/U5-EGA/TRAPS.ASP -- the U5-EGA art
+   mistakenly copied in), and conf/themes/EGA.xml referenced the UPPERCASE
+   `EGA/TRAPS.ASP`, so on case-sensitive Linux the EGA theme was loading the
+   WRONG (U5-EGA) trap art. Additionally, two files differing only in case
+   collide on case-insensitive Windows (one clobbers the other on install),
+   dropping an asset. Fix: deleted the wrong U5-EGA copy and renamed the
+   correct `traps.ASP` -> `TRAPS.ASP` (so the existing EGA.xml reference now
+   resolves to the correct art; one file, no case collision). This corrects the
+   EGA dungeon-trap art on Linux too. (Verified by rendering both with
+   graphics/converters/aspview.py --png: lowercase = the real EGA trap art,
+   uppercase = the U5-EGA fill/label variant.)
+
+4. Dropped the U5-EGA theme from the Windows package for now (per owner). The
+   dist no longer creates graphics/U5-EGA or ships conf/themes/U5-EGA.xml; only
+   the EGA theme is packaged. (tu4-setup's manifest is EGA-only, so shipping
+   U5-EGA without its regenerable assets would have been incomplete anyway.)
+
+Verified end-to-end under wine: installer installs 53 non-regenerable .ASP
+(single correct TRAPS.ASP, no case loss) + sigdata/font/palette; installed
+tu4-setup.exe --all regenerates the 36 for a complete 89-file EGA set; the
+correct TRAPS.ASP survives (tu4-setup does not touch non-regenerable assets).
+Repackaged tu4-win32.zip and dist-win/tu4-1.0-setup.exe from the corrected
+dist; native Linux build restored.
+
+2026-09-23: Build tu4-setup.exe for Windows and ship it in the dist
+-------------------------------------------------------------------
+The Windows cross-build (Makefile.mingw `dist`) now builds and packages the
+`tu4-setup` asset-generation tool alongside the game, so the Windows package
+is self-sufficient: on first run a user can regenerate the derived EGA assets
+(intro screens, codex/shrine screens, dungeon object/monster tiles, TITLE)
+from their own Ultima IV data, exactly like on Linux.
+
+Previously only tu4.exe was built. tu4-setup was Linux-only in practice for
+two reasons, both fixed here:
+
+1. Link rule (src/Makefile.mingw): the shared `tu4-setup$(EXEEXT)` rule in
+   Makefile.common links `$(CXX) $(LDFLAGS) ... -lz`. For the cross build that
+   (a) had no `-L` to the sysroot so `-lz` was not found, and (b) inherited
+   `-mwindows` from LDFLAGS. Added a mingw-specific override target that links
+   `-mconsole` (tu4-setup is a console tool -- it prints progress/errors),
+   `-static -static-libgcc -static-libstdc++`, and `$(LIBDIRS)` for the static
+   zlib. Result: tu4-setup.exe imports only KERNEL32 + UCRT (api-ms-win-crt-*),
+   no third-party import DLLs.
+
+2. Windows portability (src/setup/tu4setup_main.cpp): the batch (`--all`) path
+   created its output dir via `std::system("mkdir -p '...'")` (a Unix shell-out
+   that fails on Windows) and defaulted the out dir to
+   `$HOME/.local/share/tu4/...` (HOME is normally unset on Windows). Fixed:
+   - Added a portable recursive `makeDirs()` (uses `_mkdir` on Windows,
+     `mkdir` elsewhere; treats EEXIST as success), replacing the shell-out.
+   - The default out dir on Windows is now `graphics\EGA` (next to the exe),
+     which is where tu4.exe actually searches for assets on Windows -- its
+     resource roots are ".", "C:", "C:/DOS", "C:/GAMES" (u4file.cpp), NOT
+     %APPDATA% (that dir, per settings.cpp, holds only settings/saves). Linux
+     default unchanged ($HOME/.local/share/tu4/graphics/EGA).
+   - Dir creation now runs for both an explicit `--out` and the default.
+   These edits are confined to the setup tool; no game logic changed. Verified
+   the native Linux tu4-setup `--all` output is still byte-identical to
+   graphics/converters/baselines_EGA (36 ok, 0 diff).
+
+Dist packaging (Makefile.mingw `dist`): ships `tu4-setup.exe` (stripped) plus a
+self-contained `setup/` folder -- `cp437_8x8.bin` (font), `aspdiff/` (the 14
+per-asset .aspdiff patches from mod/EGA), `title-upper.ASP`, and a `README.txt`
+with the Windows invocation. `clean-local` now also removes tu4-setup.exe and
+the setup objects.
+
+Verified: tu4.exe is PE32+ GUI, tu4-setup.exe is PE32+ console, both fully
+static. Under wine64, `tu4-setup.exe --all` produced 36 assets byte-identical
+to baselines_EGA; the default (no --out) run correctly created and wrote to
+graphics\EGA. Native Linux tu4 + tu4-setup rebuilt cleanly afterward.
+
+Packaging (same date): added a proper Inno Setup script `src/win32/tu4.iss`
+(replacing the stale xu4 `xu4.iss`, which was for the pixel build -- u4.exe,
+SDL.dll/SDL_mixer.dll, graphics\png/vga). tu4.iss installs the whole tu4-win32
+tree recursively (so the file set stays correct as assets change), creates
+Start-Menu/optional-desktop shortcuts to tu4.exe (embedded icon) plus a
+"Generate graphics (tu4-setup)" shortcut, offers an unchecked post-install step
+that runs `tu4-setup.exe --all ... --out graphics\EGA`, mirrors the tu4.rc
+version metadata, and excludes any user "ultima4"/*.zip data. Two Makefile.mingw
+targets drive packaging: `zip` (portable archive of the dist folder, no extra
+tools) and `installer` (invokes Inno Setup's ISCC on win32/tu4.iss; ISCC can be
+overridden, e.g. `ISCC='wine .../ISCC.exe'`, and writes to <repo>/dist-win/).
+Verified `make -f Makefile.mingw zip` builds a fresh tu4-win32.zip. The .iss was
+compiled with Inno Setup 6.7.3's ISCC under wine ("Successful compile" ->
+dist-win/tu4-1.0-setup.exe, ~6 MB); a silent install of that Setup.exe under
+wine produced a correct tree (tu4.exe + tu4-setup.exe + libxmp.dll + conf/
+graphics/ mid/ sound/ setup/, uninstaller, no ultima4 data), the installed
+tu4.exe opened its window, and the installed tu4-setup.exe --all regenerated all
+36 assets.
+
 2026-09-20: Auto-discover text-mode themes; load only the active theme
 -----------------------------------------------------------------------
 Themes (Text Style entries) are now auto-discovered from theme fragment

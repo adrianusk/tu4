@@ -77,6 +77,17 @@ include Makefile.common
 tu4res.o: win32/tu4.rc win32/tu4.ico
 	$(WINDRES) -I win32 win32/tu4.rc tu4res.o
 
+# tu4-setup.exe (Windows) — OVERRIDES the shared Makefile.common rule.
+# The shared rule links "$(CXX) $(LDFLAGS) ... -lz", which for the cross build
+# (a) has no -L to the sysroot (so -lz is not found) and (b) inherits -mwindows
+# from $(LDFLAGS). tu4-setup is a CONSOLE tool (prints progress/errors and
+# needs a console), so it links -mconsole and adds $(LIBDIRS) to find the static
+# zlib. Static libgcc/libstdc++ so no GCC runtime DLLs need shipping. It has no
+# SDL/xml dependency (the setup tool is self-contained).
+tu4-setup.exe: $(SETUP_OBJS)
+	$(CXX) -static-libgcc -static-libstdc++ -static -mconsole \
+	    -o $@ $(SETUP_OBJS) $(LIBDIRS) -lz
+
 
 # The fully static link (-static + static SDL2/SDL2_mixer/libxml2/zlib)
 # means tu4.exe imports only Windows system DLLs and the UCRT
@@ -94,29 +105,103 @@ tu4res.o: win32/tu4.rc win32/tu4.ico
 DLLS = libxmp.dll
 
 # Assemble a runnable Windows distribution directory.
-dist: $(MAIN)
+dist: $(MAIN) tu4-setup.exe
 	mkdir -p $(U4PATH)
 	mkdir -p $(U4PATH)/conf/dtd
 	mkdir -p $(U4PATH)/conf/themes
-	mkdir -p $(U4PATH)/graphics/U5-EGA
 	mkdir -p $(U4PATH)/graphics/EGA
 	mkdir -p $(U4PATH)/mid
 	mkdir -p $(U4PATH)/sound
+	mkdir -p $(U4PATH)/setup/aspdiff
 	$(CROSS)strip $(MAIN) -o $(U4PATH)/$(MAIN)
+	$(CROSS)strip tu4-setup.exe -o $(U4PATH)/tu4-setup.exe
 	cp ../conf/*.xml           $(U4PATH)/conf/
-	cp ../conf/sigdata.txt     $(U4PATH)/conf/
 	cp ../conf/dtd/*.dtd       $(U4PATH)/conf/dtd/
-	cp ../conf/themes/U5-EGA.xml ../conf/themes/EGA.xml $(U4PATH)/conf/themes/
-	cp ../graphics/U5-EGA/*.ASP ../graphics/U5-EGA/cp437_8x8.bin ../graphics/U5-EGA/palette.bin $(U4PATH)/graphics/U5-EGA/
-	cp ../graphics/EGA/*.ASP ../graphics/EGA/cp437_8x8.bin ../graphics/EGA/palette.bin $(U4PATH)/graphics/EGA/
+	# Ship only the EGA theme fragment (U5-EGA is intentionally NOT included).
+	cp ../conf/themes/EGA.xml  $(U4PATH)/conf/themes/
+	# EGA .ASP assets: ship ONLY the NON-regenerable ones. Any asset that
+	# tu4-setup regenerates from the user's Ultima IV data (listed in
+	# mod/EGA/regenerable.list) is NOT shipped -- it is generated on first run
+	# into graphics/EGA/. The TITLE upper-region SOURCE (title-upper.ASP) is
+	# also skipped here (it ships under setup/ as a tu4-setup input). Then copy
+	# the theme's cp437_8x8.bin, palette.bin, and sigdata.txt (the signature-
+	# animation coordinates, which the intro loads from graphics/EGA/).
+	# Mirrors packaging/build-deb.sh copy_asp -- keep the two in sync.
+	@src=../graphics/EGA; dst=$(U4PATH)/graphics/EGA; \
+	for f in $$src/*.ASP; do \
+	  [ -e "$$f" ] || continue; \
+	  base=$$(basename "$$f"); name=$${base%.ASP}; \
+	  if grep -qx "$$name" ../mod/EGA/regenerable.list 2>/dev/null; then continue; fi; \
+	  [ "$$base" = "title-upper.ASP" ] && continue; \
+	  cp "$$f" "$$dst"/; \
+	done; \
+	for extra in cp437_8x8.bin palette.bin sigdata.txt; do \
+	  [ -e "$$src/$$extra" ] && cp "$$src/$$extra" "$$dst"/ || true; \
+	done; \
+	echo "  dist: EGA -> shipped $$(ls $$dst/*.ASP 2>/dev/null | wc -l) non-regenerable .ASP + sigdata/font/palette"
 	cp ../graphics/tu4.bmp     $(U4PATH)/graphics/
 	cp ../mid/*.mid ../mid/*.it $(U4PATH)/mid/
 	cp ../sound/*.ogg          $(U4PATH)/sound/
 	for d in $(DLLS); do cp $(SYSROOT)/bin/$$d $(U4PATH)/ ; done
 	cp ../COPYING              $(U4PATH)/COPYING.txt
 	cp ../README.md            $(U4PATH)/README.txt
+	# tu4-setup data: font, per-asset .aspdiff patches, and the TITLE upper
+	# region. tu4-setup.exe (batch) auto-discovers this setup/ folder, so the
+	# user does NOT need to pass --font/--diffs/--title-upper; see setup/README.txt.
+	cp ../graphics/converters/cp437_8x8.bin $(U4PATH)/setup/
+	cp ../mod/EGA/*.aspdiff    $(U4PATH)/setup/aspdiff/
+	cp ../graphics/EGA/title-upper.ASP $(U4PATH)/setup/
+	printf '%s\n' \
+	  'tu4-setup (Windows) -- generate the derived EGA graphics from your' \
+	  'own Ultima IV data.' \
+	  '' \
+	  '1) Put your Ultima IV data (an "ultima4" folder or ultima4.zip) in this' \
+	  '   game folder (next to tu4.exe).' \
+	  '2) Double-click tu4-setup.exe, or run it from a Command Prompt here:' \
+	  '' \
+	  '     tu4-setup.exe --all' \
+	  '' \
+	  'That is all -- it auto-finds your Ultima IV data, the font and patches in' \
+	  'this setup\\ folder, and writes the regenerated .ASP files to graphics\\EGA' \
+	  '(where tu4.exe reads them). Then run tu4.exe.' \
+	  '' \
+	  '(If your Ultima IV data is elsewhere, add:  --data C:\\path\\to\\ultima4)' \
+	  > $(U4PATH)/setup/README.txt
+
+# --- Packaging --------------------------------------------------------------
+# ISCC : the Inno Setup command-line compiler. On Linux it can run under wine.
+#        NOTE: make expands $(ISCC) unquoted in the recipe, so the value must
+#        NOT contain spaces or parentheses -- Inno Setup's default install path
+#        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" WILL break the shell.
+#        Use a wrapper script on your PATH instead, e.g.:
+#          cat > ~/bin/iscc-wine <<'EOF'
+#          #!/bin/sh
+#          exec env WINEPREFIX="$HOME/.wine64" wine \
+#            "$HOME/.wine64/drive_c/Program Files (x86)/Inno Setup 6/ISCC.exe" "$@"
+#          EOF
+#          chmod +x ~/bin/iscc-wine
+#        then:  make -f Makefile.mingw installer ISCC=~/bin/iscc-wine
+#        (On Windows, just set ISCC to the plain ISCC.exe path.)
+ISCC     ?= iscc
+ISS       = win32/tu4.iss
+ZIPNAME   = $(notdir $(U4PATH)).zip
+
+# zip: portable archive of the dist folder (no installer, no extra tools).
+zip: dist
+	rm -f $(U4PATH)/../$(ZIPNAME)
+	cd $(U4PATH)/.. && zip -rq $(ZIPNAME) $(notdir $(U4PATH)) \
+	    -x '$(notdir $(U4PATH))/ultima4/*' '$(notdir $(U4PATH))/ultima4' \
+	       '$(notdir $(U4PATH))/*.zip'
+	@echo "packaged: $(U4PATH)/../$(ZIPNAME)"
+
+# installer: build the Inno Setup installer from the dist folder. Requires
+# ISCC (Inno Setup). tu4.iss defaults DistDir to <repo>/tu4-win32 and writes
+# the installer to <repo>/dist-win/. Pass /D overrides via ISCCFLAGS if needed.
+installer: dist
+	$(ISCC) $(ISCCFLAGS) $(ISS)
+	@echo "installer written to ../dist-win/ (see win32/tu4.iss)"
 
 clean-local:
-	-rm -rf $(U4PATH) tu4res.o
+	-rm -rf $(U4PATH) tu4res.o tu4-setup.exe $(SETUP_OBJS)
 
 -include .depends
